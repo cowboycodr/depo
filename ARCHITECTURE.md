@@ -8,6 +8,31 @@ This document describes the monorepo layout, technology stack, architecture boun
 
 ---
 
+## 0. Build Stance
+
+Depo should be built as a continuous core spine, not as a slow phased roadmap. LLM-assisted development changes implementation speed, but it does not remove the need for clean boundaries. The working rule is:
+
+```text
+Move fast by making the real boundaries real early.
+```
+
+The first implementation pass should make repository storage, metadata, API contracts, and file reads real enough for the frontend to use. Avoid fake production paths, mock data hidden behind real endpoints, or UI surfaces that imply behavior the backend cannot perform.
+
+The immediate core spine is:
+
+```text
+scaffold workspace
+  -> depo-core Git/storage primitives
+  -> SQLite repository metadata
+  -> repo create/list/get APIs
+  -> commit builder API
+  -> tree/blob/read projections for the frontend
+```
+
+Git smart-HTTP is required for Depo, but it does not need to be the first server feature. A commit builder plus read APIs prove the storage model, repository lifecycle, refs, commits, trees, and file rendering before the Git protocol surface is added.
+
+---
+
 ## 1. Monorepo Layout
 
 ```
@@ -35,7 +60,7 @@ depo/
 │       └── tsconfig.json
 │
 ├── services/
-│   └── api/                  # Rust HTTP API + Git smart-HTTP
+│   └── api/                  # Rust HTTP API; Git smart-HTTP comes later
 │       ├── Cargo.toml
 │       ├── src/
 │       │   ├── main.rs       # Axum server bootstrap
@@ -187,25 +212,59 @@ https://t:{jwt}@host/{owner}/{repo}.git
 - Username is always `t` (for token).
 - Password is the JWT.
 - The `repo` claim in the JWT must match the repository path.
+- HTTP API routes still identify repositories explicitly with `{owner}/{repo}` path segments. Path identity says what resource is being touched; auth says whether the caller can touch it. This keeps logs, browser URLs, CLI calls, and self-hosted debugging clear.
 
 ---
 
-## 5. API Surface (Initial Milestone)
+## 5. API Surface
 
-The API mirrors the SDK primitives over plain HTTPS. Base URL:
+The API exposes durable Git primitives and frontend-optimized read projections over plain HTTPS. Base URL:
 
 ```
-https://api.{host}/api/v1
+/api/v1
 ```
+
+Repository identity is explicit:
+
+```text
+/api/v1/repos/{owner}/{repo}
+```
+
+Primitive endpoints exist for correctness. Projection endpoints exist for speed.
 
 ### Repositories
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/repos` | Create repository |
-| `DELETE` | `/repos/{id}` | Delete repository |
 | `GET` | `/repos` | List repositories (cursor pagination) |
-| `GET` | `/repos/{id}` | Get repository metadata |
+| `GET` | `/repos/{owner}/{repo}` | Get repository metadata |
+| `DELETE` | `/repos/{owner}/{repo}` | Delete repository |
+
+Create repository request:
+
+```json
+{
+  "owner": "kian",
+  "name": "depo",
+  "defaultBranch": "main"
+}
+```
+
+Create repository response:
+
+```json
+{
+  "repo": {
+    "id": "kian/depo",
+    "owner": "kian",
+    "name": "depo",
+    "defaultBranch": "main",
+    "createdAt": "2026-05-06T18:22:00Z",
+    "updatedAt": "2026-05-06T18:22:00Z"
+  }
+}
+```
 
 ### Git Protocol (HTTPS)
 
@@ -221,24 +280,182 @@ git fetch origin
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/repos/{id}/files?ref={branch}` | List files at ref |
-| `GET` | `/repos/{id}/file?path={path}&ref={branch}` | Get file content |
-| `GET` | `/repos/{id}/commits?ref={branch}` | List commit history |
-| `GET` | `/repos/{id}/diff?base={sha}&head={sha}` | Get diff between refs |
+| `GET` | `/repos/{owner}/{repo}/tree?ref={ref}&path={path}` | List tree entries at a path |
+| `GET` | `/repos/{owner}/{repo}/blob?ref={ref}&path={path}` | Get file metadata and content |
+| `GET` | `/repos/{owner}/{repo}/commits?ref={ref}` | List commit history |
+| `GET` | `/repos/{owner}/{repo}/commits/{sha}` | Get commit metadata |
+| `GET` | `/repos/{owner}/{repo}/diff?base={sha}&head={sha}` | Get diff between refs |
+
+Text blobs return actual source code inline when they are below the configured inline size limit:
+
+```json
+{
+  "path": "src/main.rs",
+  "kind": "text",
+  "language": "rust",
+  "mode": "100644",
+  "size": 921,
+  "encoding": "utf-8",
+  "content": "fn main() {\n    println!(\"hello depo\");\n}\n",
+  "commitSha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2",
+  "etag": "\"blob-8f12c3b-src-main-rs\""
+}
+```
+
+Large text files return a bounded preview plus a separate stream/download URL. Binary files return metadata and a download URL, not base64 embedded in repo-view responses.
 
 ### Write API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/repos/{id}/commits` | Commit builder: create commits without local Git |
+| `POST` | `/repos/{owner}/{repo}/commits` | Commit builder: create commits without local Git |
+
+Commit builder request:
+
+```json
+{
+  "targetBranch": "main",
+  "expectedHeadSha": null,
+  "message": "Initial commit",
+  "author": {
+    "name": "Kian",
+    "email": "kian@example.com"
+  },
+  "changes": [
+    {
+      "type": "upsert",
+      "path": "README.md",
+      "contentBase64": "IyBEZXBvCg==",
+      "mode": "100644"
+    }
+  ]
+}
+```
+
+Commit builder response:
+
+```json
+{
+  "commit": {
+    "sha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2",
+    "treeSha": "b9532c5d5be50d88e2f45d7c229566b2f1f99731",
+    "branch": "main"
+  },
+  "refUpdate": {
+    "oldSha": "0000000000000000000000000000000000000000",
+    "newSha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2",
+    "status": "updated"
+  }
+}
+```
 
 ### Branches
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/repos/{id}/branches` | List branches |
-| `POST` | `/repos/{id}/branches` | Create branch |
-| `DELETE` | `/repos/{id}/branches/{name}` | Delete branch |
+| `GET` | `/repos/{owner}/{repo}/branches` | List branches |
+| `POST` | `/repos/{owner}/{repo}/branches` | Create branch |
+| `DELETE` | `/repos/{owner}/{repo}/branches/{branch}` | Delete branch |
+
+### Frontend Projections
+
+Opening a repository page must not require a chatty waterfall of primitive requests. The API should provide read projections shaped for the first-party UI while keeping the primitive endpoints available for SDK, CLI, and automation.
+
+Repo browser first paint:
+
+```http
+GET /api/v1/repos/{owner}/{repo}/view?ref=main&path=README.md
+```
+
+Response:
+
+```json
+{
+  "repo": {
+    "id": "kian/depo",
+    "owner": "kian",
+    "name": "depo",
+    "defaultBranch": "main"
+  },
+  "ref": {
+    "name": "main",
+    "kind": "branch",
+    "commitSha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2"
+  },
+  "branches": {
+    "defaultBranch": "main",
+    "items": [
+      {
+        "name": "main",
+        "headSha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2"
+      }
+    ]
+  },
+  "tree": {
+    "nodes": [
+      {
+        "path": "README.md",
+        "name": "README.md",
+        "kind": "file",
+        "mode": "100644",
+        "size": 128
+      },
+      {
+        "path": "src",
+        "name": "src",
+        "kind": "directory"
+      },
+      {
+        "path": "src/main.rs",
+        "name": "main.rs",
+        "kind": "file",
+        "mode": "100644",
+        "size": 921
+      }
+    ]
+  },
+  "activeFile": {
+    "path": "README.md",
+    "kind": "text",
+    "language": "markdown",
+    "mode": "100644",
+    "size": 128,
+    "encoding": "utf-8",
+    "content": "# Depo\n",
+    "commitSha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2"
+  },
+  "recentCommits": [
+    {
+      "sha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2",
+      "title": "Initial commit",
+      "author": {
+        "name": "Kian",
+        "email": "kian@example.com"
+      },
+      "committedAt": "2026-05-06T20:15:00Z"
+    }
+  ]
+}
+```
+
+Compare view first paint:
+
+```http
+GET /api/v1/repos/{owner}/{repo}/compare-view?base=main&head=feature/sidebar
+```
+
+This response should include compare metadata, changed files, summary stats, commit metadata, and the first page of patches. Large patches paginate by file or hunk instead of blocking the whole page.
+
+Frontend performance rules:
+
+- First meaningful repo browser screen should be one request.
+- First meaningful compare screen should be one request.
+- Heavy data is paged: commits, large trees, large diffs, logs.
+- Every cacheable read response includes an `etag` or content hash.
+- `If-None-Match` is supported so the frontend can revalidate cheaply.
+- Tree and blob responses include `commitSha` so frontend caching is exact.
+- The frontend never parses raw Git output.
+- SSE/WebSocket is reserved for streaming behavior: runner logs, job state, live pushes.
 
 ### Pagination
 
@@ -253,11 +470,43 @@ All errors follow a consistent shape:
 
 ```json
 {
-  "error": "insufficient permissions"
+  "error": {
+    "code": "repo_not_found",
+    "message": "Repository kian/depo does not exist.",
+    "details": {
+      "owner": "kian",
+      "repo": "depo"
+    }
+  }
 }
 ```
 
-Clients branch on HTTP status codes, not message strings.
+Clients branch on HTTP status codes and stable `error.code` values, not message strings.
+
+### SDK Shape
+
+The TypeScript SDK should wrap the HTTP API without hiding the resource model:
+
+```ts
+const depo = new DepoClient({ baseUrl, token });
+
+const repo = await depo.repos.create({
+  owner: "kian",
+  name: "depo",
+  defaultBranch: "main"
+});
+
+await repo.createCommit({
+  targetBranch: "main",
+  message: "Initial commit",
+  author: { name: "Kian", email: "kian@example.com" },
+  changes: [
+    { type: "upsertText", path: "README.md", content: "# Depo\n" }
+  ]
+});
+
+const view = await repo.view({ ref: "main", path: "README.md" });
+```
 
 ---
 
@@ -352,12 +601,12 @@ The backend never edits files directly. There is no working tree to corrupt or d
 ```json
 {
   "scripts": {
-    "dev": "concurrently \"pnpm --filter web dev\" \"cargo run -p api\"",
-    "build": "pnpm --filter web build && cargo build --release -p api",
-    "check": "pnpm --filter web check && cargo check --workspace",
-    "test": "pnpm --filter api-client test && cargo test --workspace",
-    "db:migrate": "cd services/api && cargo sqlx migrate run",
-    "db:prepare": "cd services/api && cargo sqlx prepare"
+    "dev": "concurrently -n api,web \"pnpm dev:api\" \"pnpm dev:web\"",
+    "dev:api": "DEPO_AUTH_MODE=local cargo run -p depo-api",
+    "dev:web": "pnpm --filter @depo/web dev",
+    "build": "cargo build --workspace && pnpm --filter @depo/api-client build && pnpm --filter @depo/web build",
+    "check": "cargo check --workspace && pnpm --filter @depo/api-client build && pnpm --filter @depo/web check",
+    "test": "cargo test --workspace"
   }
 }
 ```
@@ -371,11 +620,14 @@ The backend never edits files directly. There is no working tree to corrupt or d
 ### Running locally
 
 ```bash
-# Start both frontend and backend
-pnpm dev
+# Start the backend in explicit local auth mode
+pnpm dev:api
 
-# Run database migrations
-cd services/api && cargo sqlx migrate run
+# Start the frontend
+pnpm dev:web
+
+# Run compile and SDK checks
+pnpm check
 
 # Run tests
 pnpm test
@@ -397,14 +649,33 @@ These principles are derived from `AGENTS.md` and apply to every decision in thi
 
 ---
 
-## 10. Migration from Current State
+## 10. Current Build Status
 
-1. **Move `depo-web` → `apps/web`.** Preserve all source; update workspace imports.
-2. **Create `packages/api-client`.** Build the TypeScript SDK from scratch, matching Code Storage's ergonomics.
-3. **Create `services/api`.** Rust Axum server with SQLite via sqlx. Implement repo CRUD, Git protocol, and read APIs.
-4. **Create `crates/depo-core`.** Shared Git operations, path validation, and domain types.
-5. **Wire frontend to real API.** Replace mock data in `DiffViewer`, `RepositoryTree`, and other components with live API calls.
-6. **Add root tooling.** pnpm workspace, Cargo workspace, root scripts, and CI configuration.
+The initial core spine is implemented:
+
+- Workspace layout exists: root `Cargo.toml`, root `package.json`, `pnpm-workspace.yaml`, `crates/depo-core`, `services/api`, and `packages/api-client`.
+- `depo-core` owns repository ID validation, repo file path validation, branch/ref/SHA validation, path-safe bare repo layout, Git command execution with argument arrays and timeouts, bare repo creation, commit construction, tree listing, blob reading, branch listing, and recent commit summaries.
+- `services/api` owns SQLite migrations and metadata access for `repositories`.
+- The API implements `POST /api/v1/repos`, `GET /api/v1/repos`, `GET /api/v1/repos/{owner}/{repo}`, `POST /api/v1/repos/{owner}/{repo}/commits`, `GET /api/v1/repos/{owner}/{repo}/tree`, `GET /api/v1/repos/{owner}/{repo}/blob`, and `GET /api/v1/repos/{owner}/{repo}/view`.
+- `/view` proves the frontend read path by returning repository metadata, resolved ref data, branches, tree nodes, actual active file text, and recent commits in one response.
+- `packages/api-client` wraps only the working API behavior.
+- `apps/web` is copied from the existing standalone SvelteKit UI and wired to `/view` with minimal visual changes. UI edits in this step are limited to replacing mock data with real API data, adding truthful repo/ref/file metadata, and fixing compile/integration issues.
+
+Verification:
+
+- `pnpm check`
+- `pnpm test`
+
+Near-term remaining work:
+
+- Add real JWT verification. The API currently starts only when `DEPO_AUTH_MODE=local` is set explicitly.
+
+Still intentional non-goals:
+
+- Do not implement Git smart-HTTP before the storage model and commit/read path are proven.
+- Do not add a runner or CI execution surface yet.
+- Do not build UI that implies real Git behavior before the API supports it.
+- Do not hide missing auth behind silent fallbacks. A narrow local dev auth mode is acceptable only if it is explicit.
 
 ---
 

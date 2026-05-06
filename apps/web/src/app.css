@@ -1,0 +1,230 @@
+@import 'tailwindcss/theme';
+@import 'tailwindcss/preflight';
+@import 'tailwindcss/utilities';
+
+/* ─── Dark theme (default) ─────────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+
+  /* surfaces */
+  --bg: #000;
+  --repo-canvas: #000;
+  --surface: #202020;
+  --surface-muted: #151515;
+  --surface-hover: #242424;
+  --surface-nav-active: #2a2a2a;
+  --surface-inverse: #fff;
+  --surface-chip: rgba(255, 255, 255, 0.06);
+  --overlay-hover: rgba(255, 255, 255, 0.02);
+  --surface-accent: rgba(29, 115, 245, 0.13);
+
+  /* foreground */
+  --text-primary: #e4e7eb;
+  --text-bright: #f4f4f4;
+  --text-secondary: #c7cdd6;
+  --text-tertiary: #9ca3af;
+  --text-quaternary: #8f8f8f;
+  --text-faint: #777;
+  --text-disabled: #555;
+  --text-subtle: #888;
+  --text-slash: #4f4f4f;
+  --text-ref-sha: #666;
+  --text-caret: #788190;
+
+  /* accents */
+  --accent-primary: #1d73f5;
+  --accent-info: #91bcff;
+  --accent-success: #7de89a;
+  --accent-danger: #b03a3a;
+
+  /* borders */
+  --line: #1a1a1a;
+  --border-muted: #333;
+
+  /* rings (used in shadow composites below) */
+  --focus-ring: rgba(255, 255, 255, 0.1);
+  --control-ring: rgba(255, 255, 255, 0.08);
+
+  /* prism logo */
+  --prism-pink: #ff5ac8;
+  --prism-yellow: #ffe66d;
+  --prism-green: #39e77b;
+  --prism-cyan: #3dd6ff;
+  --logo-stroke: #5f6368;
+
+  /* diff */
+  --diff-stat-add: #4ade80;
+  --diff-stat-remove: #fca5a5;
+  --diff-stat-add-strong: #4ade80;
+  --diff-hunk-bg: #0c1530;
+  --diff-hunk-marker: #60a5fa;
+  --diff-hunk-title: #93c5fd;
+  --diff-add-bg: #0e2e14;
+  --diff-add-line: #4ade80;
+  --diff-add-gutter: #112e16;
+  --diff-add-number: #86efac;
+  --diff-add-marker: #4ade80;
+  --diff-add-text: #bbf7d0;
+  --diff-remove-bg: #2e1212;
+  --diff-remove-line: #f87171;
+  --diff-remove-gutter: #2e1414;
+  --diff-remove-number: #fca5a5;
+  --diff-remove-marker: #f87171;
+  --diff-remove-text: #fecaca;
+
+  /* syntax */
+  --syntax-keyword: #569cd6;
+  --syntax-function: #dcdcaa;
+  --syntax-string: #ce9178;
+  --syntax-type: #4ec9b0;
+  --syntax-operator: #d4d4d4;
+}
+
+/* ─── Light theme overrides ────────────────────────────────────────────────── */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #f6f7f9;
+    --repo-canvas: #f6f7f9;
+    --surface: #dde2e8;
+    --surface-muted: #e8ebef;
+    --surface-hover: #d2d8e1;
+    --surface-nav-active: #f8fafc;
+    --surface-inverse: #111827;
+    --surface-chip: rgba(17, 24, 39, 0.07);
+    --overlay-hover: rgba(17, 24, 39, 0.07);
+    --surface-accent: rgba(36, 96, 232, 0.08);
+
+    --text-primary: #1f2937;
+    --text-bright: #111827;
+    --text-secondary: #64707f;
+    --text-tertiary: #667085;
+    --text-quaternary: #7b8491;
+    --text-faint: #6f7782;
+    --text-disabled: #9aa3af;
+    --text-subtle: #8a94a3;
+    --text-slash: #9aa3af;
+    --text-ref-sha: #64707f;
+    --text-caret: #7b8491;
+
+    --accent-primary: #2460e8;
+    --accent-info: #1b4dd4;
+    --accent-success: #16813e;
+    --accent-danger: #b52619;
+
+    --line: #d9dde3;
+    --border-muted: #c8ced6;
+
+    --focus-ring: rgba(17, 24, 39, 0.14);
+    --control-ring: rgba(17, 24, 39, 0.12);
+
+    --logo-stroke: #6b7280;
+
+    --diff-stat-add: #22c55e;
+    --diff-stat-remove: #ef4444;
+    --diff-stat-add-strong: #22c55e;
+    --diff-hunk-bg: #eff6ff;
+    --diff-hunk-marker: #3b82f6;
+    --diff-hunk-title: #2563eb;
+    --diff-add-bg: #f0fdf4;
+    --diff-add-line: #22c55e;
+    --diff-add-gutter: #bbf7d0;
+    --diff-add-number: #22c55e;
+    --diff-add-marker: #22c55e;
+    --diff-add-text: #15803d;
+    --diff-remove-bg: #fef2f2;
+    --diff-remove-line: #ef4444;
+    --diff-remove-gutter: #fecaca;
+    --diff-remove-number: #ef4444;
+    --diff-remove-marker: #ef4444;
+    --diff-remove-text: #b91c1c;
+
+    --syntax-keyword: #0550ae;
+    --syntax-function: #8250df;
+    --syntax-string: #a40e26;
+    --syntax-type: #0f766e;
+    --syntax-operator: #24292f;
+  }
+}
+
+/* ─── Tailwind design token registration ───────────────────────────────────── */
+@theme inline {
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* surfaces */
+  --color-bg: var(--bg);
+  --color-canvas: var(--repo-canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-nav-active: var(--surface-nav-active);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-surface-chip: var(--surface-chip);
+  --color-overlay-hover: var(--overlay-hover);
+  --color-surface-accent: var(--surface-accent);
+
+  /* foreground */
+  --color-fg: var(--text-primary);
+  --color-fg-bright: var(--text-bright);
+  --color-text: var(--text-primary);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-tertiary: var(--text-tertiary);
+  --color-fg-muted: var(--text-quaternary);
+  --color-fg-faint: var(--text-faint);
+  --color-fg-disabled: var(--text-disabled);
+  --color-fg-subtle: var(--text-subtle);
+  --color-fg-slash: var(--text-slash);
+  --color-fg-ref: var(--text-ref-sha);
+  --color-fg-caret: var(--text-caret);
+
+  /* accents */
+  --color-accent: var(--accent-primary);
+  --color-accent-info: var(--accent-info);
+  --color-accent-success: var(--accent-success);
+  --color-danger: var(--accent-danger);
+
+  /* borders */
+  --color-line: var(--line);
+  --color-border: var(--border-muted);
+
+  /* prism logo */
+  --color-prism-pink: var(--prism-pink);
+  --color-prism-yellow: var(--prism-yellow);
+  --color-prism-green: var(--prism-green);
+  --color-prism-cyan: var(--prism-cyan);
+  --color-logo-stroke: var(--logo-stroke);
+
+  /* diff stats */
+  --color-diff-add: var(--diff-stat-add);
+  --color-diff-add-strong: var(--diff-stat-add-strong);
+  --color-diff-remove: var(--diff-stat-remove);
+
+  /* composite shadows */
+  --shadow-ring: inset 0 0 0 1px var(--focus-ring);
+  --shadow-control: inset 0 0 0 1px var(--control-ring);
+
+  /* border radii — base 4px grid: icon(3)·avatar(5)·inner(6)·ui(8)·badge(10)·panel(12) */
+  --radius-ui: 8px;
+  --radius-badge: 10px;
+  --radius-avatar: 5px;
+  --radius-icon: 3px;
+  --radius-panel: 12px;
+
+  /* font sizes */
+  --text-2xs: 8px;
+  --text-badge: 9.5px;
+  --text-ui-xs: 10px;
+  --text-ui-sm: 10.5px;
+  --text-ui: 11px;
+  --text-ui-md: 11.5px;
+  --text-code: 12.5px;
+
+  /* line heights */
+  --leading-code: 1.72;
+  --leading-badge: 1.6;
+
+  /* letter spacing */
+  --tracking-icon: 0.02em;
+}

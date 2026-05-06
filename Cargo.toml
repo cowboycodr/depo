@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/depo-core",
+    "services/api",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/pacificcode/depo"
+
+[workspace.dependencies]
+anyhow = "1.0.100"
+axum = "0.8.7"
+base64 = "0.22.1"
+depo-core = { path = "crates/depo-core" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }
+tempfile = "3.23.0"
+thiserror = "2.0.17"
+tokio = { version = "1.48.0", features = ["macros", "net", "rt-multi-thread", "signal"] }
+tower = "0.5.2"
+wait-timeout = "0.2.1"

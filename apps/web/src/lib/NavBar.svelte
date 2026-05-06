@@ -1,0 +1,123 @@
+<script lang="ts">
+  import Search from '~icons/lucide/search';
+  import * as Button from '@/ui/Button';
+  import * as Capsule from '@/ui/Capsule';
+
+  const {
+    owner,
+    repo,
+    refName = 'main',
+    commitSha
+  }: {
+    owner: string;
+    repo: string;
+    refName?: string;
+    commitSha?: string | null;
+  } = $props();
+
+  type NavTab = { label: string; active: boolean; count?: number };
+  const tabs: NavTab[] = [
+    { label: 'Code', active: true },
+    { label: 'Commits', active: false, count: 47 },
+    { label: 'Pull Requests', active: false, count: 2 },
+    { label: 'Issues', active: false, count: 5 }
+  ];
+
+  type NavAction = { label: string; count: string };
+  const actions: NavAction[] = [
+    // { label: 'Star', count: '12' },
+    // { label: 'Fork', count: '3' },
+    // { label: 'Clone', count: '14.9K' }
+  ];
+</script>
+
+<nav class="flex h-10.5 shrink-0 items-stretch gap-0 p-0 pr-1.75">
+  <!-- Logo -->
+  <div
+    class="flex w-12.5 flex-none items-center justify-center self-stretch"
+    aria-label="Pacific Code"
+  >
+    <svg
+      class="block h-4 w-4.5 flex-none"
+      width="18"
+      height="16"
+      viewBox="0 0 18 16"
+      fill="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient
+          id="pacificcode"
+          x1="13"
+          y1="8"
+          x2="9"
+          y2="15"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop offset="0" stop-color="var(--prism-pink)" />
+          <stop offset="0.28" stop-color="var(--prism-yellow)" />
+          <stop offset="0.58" stop-color="var(--prism-green)" />
+          <stop offset="1" stop-color="var(--prism-cyan)" />
+        </linearGradient>
+      </defs>
+      <polygon
+        points="9,1 17,15 1,15"
+        class="fill-none stroke-logo-stroke stroke-[1.1]"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M13 8 L17 15 L9 15"
+        class="fill-none stroke-[1.1]"
+        stroke="url(#pacificcode)"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </div>
+
+  <Capsule.Root>
+    <Capsule.Extension side="left" class="pl-[2.5px]">
+      <img class="block h-6 w-6 rounded-avatar" src="/pacificcode.svg" alt="Repository owner" />
+      <span class="pl-1.25 text-fg-bright">{owner}</span>
+      <span class="text-fg-slash">/</span>
+      <span>{repo}</span>
+    </Capsule.Extension>
+
+    <Capsule.Core>
+      {#each tabs as tab (tab.label)}
+        <Capsule.Tab active={tab.active} count={tab.count}>
+          {tab.label}
+        </Capsule.Tab>
+      {/each}
+    </Capsule.Core>
+
+    <Capsule.Extension side="right">
+      <span class="text-fg-secondary">{refName}</span>
+      <span class="text-fg-ref">{commitSha ? commitSha.slice(0, 7) : 'empty'}</span>
+    </Capsule.Extension>
+  </Capsule.Root>
+
+  <!-- Actions -->
+  <div class="ml-auto flex items-center">
+    <div class="flex items-center gap-1.25">
+      {#each actions as action (action.label)}
+        <Button.Root label={action.label}>
+          {action.label}
+          <span
+            class="inline-flex h-[1em] translate-y-px items-center font-mono text-ui-xs leading-none text-fg-tertiary"
+            >{action.count}</span
+          >
+        </Button.Root>
+      {/each}
+      <Button.Root label="Search" class="min-w-33 cursor-default justify-start">
+        <Search class="flex-none text-fg-tertiary" width={12} height={12} stroke-width={2} />
+        <span class="text-ui">Search</span>
+      </Button.Root>
+      <img
+        class="block h-6 w-6 rounded-ui bg-surface object-cover"
+        src="https://avatars.githubusercontent.com/u/59800761?v=4"
+        alt="Profile"
+      />
+    </div>
+  </div>
+</nav>

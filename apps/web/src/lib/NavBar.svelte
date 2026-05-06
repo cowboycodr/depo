@@ -1,5 +1,6 @@
 <script lang="ts">
-  import Plus from '~icons/lucide/plus';
+  import Search from '~icons/lucide/search';
+  import * as Button from '@/ui/Button';
   import * as Capsule from '@/ui/Capsule';
 
   const {
@@ -14,9 +15,12 @@
     commitSha?: string | null;
   } = $props();
 
-  type NavTab = { label: string; active: boolean; count?: number };
+  type NavTab = { label: string; active: boolean; disabled?: boolean; count?: number };
   const tabs: NavTab[] = [
-    { label: 'Code', active: true }
+    { label: 'Code', active: true },
+    { label: 'Commits', active: false, disabled: true },
+    { label: 'Pull Requests', active: false, disabled: true },
+    { label: 'Issues', active: false, disabled: true }
   ];
 </script>
 
@@ -74,7 +78,7 @@
 
     <Capsule.Core>
       {#each tabs as tab (tab.label)}
-        <Capsule.Tab active={tab.active} count={tab.count}>
+        <Capsule.Tab active={tab.active} disabled={tab.disabled} count={tab.count}>
           {tab.label}
         </Capsule.Tab>
       {/each}
@@ -89,13 +93,10 @@
   <!-- Actions -->
   <div class="ml-auto flex items-center">
     <div class="flex items-center gap-1.25">
-      <a
-        class="inline-flex h-6 items-center gap-1.5 rounded-ui border-0 bg-surface px-2.25 font-sans text-ui-md leading-none whitespace-nowrap text-fg hover:bg-surface-hover"
-        href="/"
-      >
-        <Plus class="flex-none text-fg-tertiary" width={12} height={12} stroke-width={2} />
-        <span class="text-ui">New repo</span>
-      </a>
+      <Button.Root label="Search" class="min-w-33 cursor-default justify-start">
+        <Search class="flex-none text-fg-tertiary" width={12} height={12} stroke-width={2} />
+        <span class="text-ui">Search</span>
+      </Button.Root>
     </div>
   </div>
 </nav>

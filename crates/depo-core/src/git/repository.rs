@@ -40,6 +40,10 @@ pub enum RepositoryError {
     EmptyCommitMessage,
     #[error("unsupported file mode: {0}")]
     UnsupportedFileMode(String),
+    #[error("path not found: {0}")]
+    PathNotFound(String),
+    #[error("path is not a file: {0}")]
+    PathNotFile(String),
 }
 
 #[derive(Debug, Clone)]
@@ -220,6 +224,18 @@ impl BareRepository {
         Ok((commit_sha, entries))
     }
 
+    pub fn list_tree_recursive(
+        &self,
+        reference: &ValidatedRef,
+        path: &RepoFilePath,
+    ) -> Result<(GitSha, Vec<TreeEntry>), RepositoryError> {
+        let commit_sha = self.resolve_ref(reference)?;
+        let treeish = treeish_for_path(&commit_sha, path);
+        let output = self.git_run(["ls-tree", "-z", "-l", "-r", "-t", treeish.as_str()])?;
+        let entries = parse_tree_entries(&output.stdout, path)?;
+        Ok((commit_sha, entries))
+    }
+
     pub fn read_blob(
         &self,
         reference: &ValidatedRef,
@@ -233,12 +249,10 @@ impl BareRepository {
         let entry = entries
             .into_iter()
             .find(|entry| entry.path == path.as_str())
-            .ok_or_else(|| RepositoryError::InvalidGitOutput(format!("blob not found: {path}")))?;
+            .ok_or_else(|| RepositoryError::PathNotFound(path.as_str().to_owned()))?;
 
         if entry.kind != TreeEntryKind::File {
-            return Err(RepositoryError::InvalidGitOutput(format!(
-                "path is not a file: {path}"
-            )));
+            return Err(RepositoryError::PathNotFile(path.as_str().to_owned()));
         }
 
         if entry.size > inline_limit {
@@ -672,6 +686,53 @@ mod tests {
             .unwrap();
         assert_eq!(blob.kind, BlobKind::Text);
         assert_eq!(blob.content.as_deref(), Some("# Depo\n"));
+    }
+
+    #[test]
+    fn lists_recursive_tree_entries_with_full_paths() {
+        let (_temp, repo) = test_repo();
+        repo.create_commit(CommitRequest {
+            target_branch: BranchName::parse("main").unwrap(),
+            expected_head_sha: None,
+            message: "Initial commit".to_owned(),
+            author: CommitAuthor {
+                name: "Kian".to_owned(),
+                email: "kian@example.com".to_owned(),
+            },
+            changes: vec![
+                CommitChange::Upsert {
+                    path: RepoFilePath::parse_file("README.md").unwrap(),
+                    content: b"# Depo\n".to_vec(),
+                    mode: "100644".to_owned(),
+                },
+                CommitChange::Upsert {
+                    path: RepoFilePath::parse_file("src/main.rs").unwrap(),
+                    content: b"fn main() {}\n".to_vec(),
+                    mode: "100644".to_owned(),
+                },
+                CommitChange::Upsert {
+                    path: RepoFilePath::parse_file("src/lib/mod.rs").unwrap(),
+                    content: b"pub mod storage;\n".to_vec(),
+                    mode: "100644".to_owned(),
+                },
+            ],
+        })
+        .unwrap();
+
+        let reference = ValidatedRef::Branch(BranchName::parse("main").unwrap());
+        let (_, tree) = repo
+            .list_tree_recursive(&reference, &RepoFilePath::root())
+            .unwrap();
+        let entries = tree
+            .iter()
+            .map(|entry| (entry.path.as_str(), entry.kind))
+            .collect::<Vec<_>>();
+
+        assert!(entries.contains(&("README.md", TreeEntryKind::File)));
+        assert!(entries.contains(&("src", TreeEntryKind::Directory)));
+        assert!(entries.contains(&("src/main.rs", TreeEntryKind::File)));
+        assert!(entries.contains(&("src/lib", TreeEntryKind::Directory)));
+        assert!(entries.contains(&("src/lib/mod.rs", TreeEntryKind::File)));
     }
 
     #[test]

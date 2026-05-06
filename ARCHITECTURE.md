@@ -651,24 +651,27 @@ These principles are derived from `AGENTS.md` and apply to every decision in thi
 
 ## 10. Current Build Status
 
-The initial core spine is implemented:
+The initial core spine plus the first web-usable repository flow are implemented:
 
 - Workspace layout exists: root `Cargo.toml`, root `package.json`, `pnpm-workspace.yaml`, `crates/depo-core`, `services/api`, and `packages/api-client`.
-- `depo-core` owns repository ID validation, repo file path validation, branch/ref/SHA validation, path-safe bare repo layout, Git command execution with argument arrays and timeouts, bare repo creation, commit construction, tree listing, blob reading, branch listing, and recent commit summaries.
+- `depo-core` owns repository ID validation, repo file path validation, branch/ref/SHA validation, path-safe bare repo layout, Git command execution with argument arrays and timeouts, bare repo creation, commit construction, direct and recursive tree listing, blob reading, branch listing, and recent commit summaries.
 - `services/api` owns SQLite migrations and metadata access for `repositories`.
 - The API implements `POST /api/v1/repos`, `GET /api/v1/repos`, `GET /api/v1/repos/{owner}/{repo}`, `POST /api/v1/repos/{owner}/{repo}/commits`, `GET /api/v1/repos/{owner}/{repo}/tree`, `GET /api/v1/repos/{owner}/{repo}/blob`, and `GET /api/v1/repos/{owner}/{repo}/view`.
-- `/view` proves the frontend read path by returning repository metadata, resolved ref data, branches, tree nodes, actual active file text, and recent commits in one response.
+- `/view` proves the frontend read path by returning repository metadata, resolved ref data, branches, recursive tree nodes, actual active file text, and recent commits in one response.
 - `packages/api-client` wraps only the working API behavior.
-- `apps/web` is copied from the existing standalone SvelteKit UI and wired to `/view` with minimal visual changes. UI edits in this step are limited to replacing mock data with real API data, adding truthful repo/ref/file metadata, and fixing compile/integration issues.
+- `apps/web` is copied from the existing standalone SvelteKit UI and wired to real API data with minimal visual changes. The root page lists repositories and creates a repository plus its first `README.md` commit through the API client. Repository pages load `/view`, browse the returned tree with file links, and render actual text blobs in a normal source viewer.
 
 Verification:
 
-- `pnpm check`
-- `pnpm test`
+- `pnpm run check`
+- `pnpm run test`
+- `pnpm run build`
+- Local smoke: start `depo-api` with `DEPO_AUTH_MODE=local`, start `@depo/web`, submit the root create form, and confirm the rendered repository route shows the README content returned by `/view`.
 
 Near-term remaining work:
 
 - Add real JWT verification. The API currently starts only when `DEPO_AUTH_MODE=local` is set explicitly.
+- Add pagination/conditional caching to large repository projections. The current `/view` tree is intentionally simple for the first web-usable slice and should not be treated as the final large-repo strategy.
 
 Still intentional non-goals:
 

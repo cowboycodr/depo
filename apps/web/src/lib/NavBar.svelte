@@ -1,6 +1,5 @@
 <script lang="ts">
-  import Search from '~icons/lucide/search';
-  import * as Button from '@/ui/Button';
+  import Plus from '~icons/lucide/plus';
   import * as Capsule from '@/ui/Capsule';
 
   const {
@@ -17,17 +16,7 @@
 
   type NavTab = { label: string; active: boolean; count?: number };
   const tabs: NavTab[] = [
-    { label: 'Code', active: true },
-    { label: 'Commits', active: false, count: 47 },
-    { label: 'Pull Requests', active: false, count: 2 },
-    { label: 'Issues', active: false, count: 5 }
-  ];
-
-  type NavAction = { label: string; count: string };
-  const actions: NavAction[] = [
-    // { label: 'Star', count: '12' },
-    // { label: 'Fork', count: '3' },
-    // { label: 'Clone', count: '14.9K' }
+    { label: 'Code', active: true }
   ];
 </script>
 
@@ -100,24 +89,13 @@
   <!-- Actions -->
   <div class="ml-auto flex items-center">
     <div class="flex items-center gap-1.25">
-      {#each actions as action (action.label)}
-        <Button.Root label={action.label}>
-          {action.label}
-          <span
-            class="inline-flex h-[1em] translate-y-px items-center font-mono text-ui-xs leading-none text-fg-tertiary"
-            >{action.count}</span
-          >
-        </Button.Root>
-      {/each}
-      <Button.Root label="Search" class="min-w-33 cursor-default justify-start">
-        <Search class="flex-none text-fg-tertiary" width={12} height={12} stroke-width={2} />
-        <span class="text-ui">Search</span>
-      </Button.Root>
-      <img
-        class="block h-6 w-6 rounded-ui bg-surface object-cover"
-        src="https://avatars.githubusercontent.com/u/59800761?v=4"
-        alt="Profile"
-      />
+      <a
+        class="inline-flex h-6 items-center gap-1.5 rounded-ui border-0 bg-surface px-2.25 font-sans text-ui-md leading-none whitespace-nowrap text-fg hover:bg-surface-hover"
+        href="/"
+      >
+        <Plus class="flex-none text-fg-tertiary" width={12} height={12} stroke-width={2} />
+        <span class="text-ui">New repo</span>
+      </a>
     </div>
   </div>
 </nav>

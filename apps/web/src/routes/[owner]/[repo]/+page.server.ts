@@ -1,20 +1,18 @@
-import { env } from '$env/dynamic/private';
-import { DepoApiError, DepoClient } from '@depo/api-client';
+import { DepoApiError } from '@depo/api-client';
+import { createDepoClient } from '@/server/depo-client';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ fetch, params, url }) => {
-  const path = url.searchParams.get('path') ?? 'README.md';
+  const path = url.searchParams.get('path') ?? undefined;
   const ref = url.searchParams.get('ref') ?? undefined;
-  const client = new DepoClient({
-    baseUrl: env.DEPO_API_ORIGIN ?? 'http://127.0.0.1:3847',
-    fetchImpl: fetch
-  });
+  const client = createDepoClient(fetch);
 
   try {
     return {
       owner: params.owner,
       repo: params.repo,
-      path,
+      ref: ref ?? null,
+      path: path ?? null,
       view: await client.repos.view(params.owner, params.repo, { ref, path }),
       error: null
     };
@@ -23,7 +21,8 @@ export const load: PageServerLoad = async ({ fetch, params, url }) => {
       return {
         owner: params.owner,
         repo: params.repo,
-        path,
+        ref: ref ?? null,
+        path: path ?? null,
         view: null,
         error: {
           code: error.code,

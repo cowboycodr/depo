@@ -10,15 +10,23 @@
     createTree,
     getVisibleRows,
     hasChangedDescendant,
-    pathsFromEntries
+    pathsFromEntries,
+    type VisibleNode
   } from '@/repository-tree';
+
+  const defaultHrefForPath = (path: string) => {
+    const query = new URLSearchParams({ path });
+    return `?${query.toString()}`;
+  };
 
   const {
     nodes = [],
-    selectedPath = ''
+    selectedPath = '',
+    hrefForPath = defaultHrefForPath
   }: {
     nodes?: TreeEntry[];
     selectedPath?: string;
+    hrefForPath?: (path: string) => string;
   } = $props();
 
   const paths = $derived(pathsFromEntries(nodes));
@@ -59,6 +67,42 @@
     ].join(' ');
 </script>
 
+{#snippet rowContent(
+  row: VisibleNode,
+  selected: boolean,
+  folder: boolean,
+  open: boolean,
+  changed: boolean
+)}
+  <span class="flex min-w-0 items-center gap-1.5">
+    <span class={twistClass(selected)}>
+      {#if folder}
+        {#if open}
+          <ChevronDown width={13} height={13} stroke-width={2.1} />
+        {:else}
+          <ChevronRight width={13} height={13} stroke-width={2.1} />
+        {/if}
+      {/if}
+    </span>
+
+    {#if !folder && row.node.name.startsWith('.git')}
+      <span class="inline-flex h-3.75 w-3.75 shrink-0 items-center justify-center text-danger">
+        <GitBranch width={14} height={14} stroke-width={2} />
+      </span>
+    {:else if !folder}
+      <LanguageIcon name={row.node.name} />
+    {/if}
+
+    <span class="min-w-0 truncate">{row.displayName}</span>
+  </span>
+
+  <span class="flex shrink-0 items-center gap-1.5 font-mono text-ui-xs text-fg-tertiary">
+    {#if changed && !selected}
+      <span class="block h-1.5 w-1.5 rounded-full bg-diff-add" aria-label="Contains changes"></span>
+    {/if}
+  </span>
+{/snippet}
+
 <div
   class="h-full min-h-0 w-full overflow-y-auto py-3 px-2 text-fg-secondary [scrollbar-gutter:stable] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar-thumb]:bg-surface-hover"
 >
@@ -69,45 +113,27 @@
       {@const open = folder && isOpen(row.node.path)}
       {@const changed = hasChangedDescendant(row.node, changedPaths)}
 
-      <button
-        type="button"
-        class={rowClass(selected)}
-        style={`padding-left: ${10 + row.depth * 18}px`}
-        aria-current={selected ? 'page' : undefined}
-        aria-expanded={folder ? open : undefined}
-        onclick={() => folder && toggleFolder(row.node.path)}
-      >
-        <span class="flex min-w-0 items-center gap-1.5">
-          <span class={twistClass(selected)}>
-            {#if folder}
-              {#if open}
-                <ChevronDown width={13} height={13} stroke-width={2.1} />
-              {:else}
-                <ChevronRight width={13} height={13} stroke-width={2.1} />
-              {/if}
-            {/if}
-          </span>
-
-          {#if !folder && row.node.name.startsWith('.git')}
-            <span
-              class="inline-flex h-3.75 w-3.75 shrink-0 items-center justify-center text-danger"
-            >
-              <GitBranch width={14} height={14} stroke-width={2} />
-            </span>
-          {:else if !folder}
-            <LanguageIcon name={row.node.name} />
-          {/if}
-
-          <span class="min-w-0 truncate">{row.displayName}</span>
-        </span>
-
-        <span class="flex shrink-0 items-center gap-1.5 font-mono text-ui-xs text-fg-tertiary">
-          {#if changed && !selected}
-            <span class="block h-1.5 w-1.5 rounded-full bg-diff-add" aria-label="Contains changes"
-            ></span>
-          {/if}
-        </span>
-      </button>
+      {#if folder}
+        <button
+          type="button"
+          class={rowClass(selected)}
+          style={`padding-left: ${10 + row.depth * 18}px`}
+          aria-current={selected ? 'page' : undefined}
+          aria-expanded={open}
+          onclick={() => toggleFolder(row.node.path)}
+        >
+          {@render rowContent(row, selected, folder, open, changed)}
+        </button>
+      {:else}
+        <a
+          class={rowClass(selected)}
+          style={`padding-left: ${10 + row.depth * 18}px`}
+          aria-current={selected ? 'page' : undefined}
+          href={hrefForPath(row.node.path)}
+        >
+          {@render rowContent(row, selected, folder, open, changed)}
+        </a>
+      {/if}
     {/each}
   </div>
 </div>

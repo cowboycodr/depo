@@ -212,7 +212,8 @@ pub async fn get_view(
     let (tree_nodes, active_file, recent_commits) = match &resolved_ref {
         Some(commit_sha) => {
             let root = RepoFilePath::root();
-            let (_, tree) = repo.list_tree(&ValidatedRef::Commit(commit_sha.clone()), &root)?;
+            let (_, tree) =
+                repo.list_tree_recursive(&ValidatedRef::Commit(commit_sha.clone()), &root)?;
             let active_file = match query.path.as_deref() {
                 Some(path) if !path.is_empty() => {
                     let file_path = RepoFilePath::parse_file(path)?;
@@ -698,6 +699,16 @@ impl From<RepositoryError> for ApiError {
             | RepositoryError::UnsupportedFileMode(_) => {
                 Self::bad_request("invalid_commit", error.to_string(), json!({}))
             }
+            RepositoryError::PathNotFound(path) => Self::not_found(
+                "path_not_found",
+                "Repository path does not exist.",
+                json!({ "path": path }),
+            ),
+            RepositoryError::PathNotFile(path) => Self::bad_request(
+                "path_not_file",
+                "Repository path is not a file.",
+                json!({ "path": path }),
+            ),
             RepositoryError::RepositoryMissing(path) => Self::not_found(
                 "repo_storage_missing",
                 "Repository storage path is missing.",
@@ -786,6 +797,11 @@ mod tests {
                             "type": "upsertText",
                             "path": "README.md",
                             "content": "# Depo\n"
+                        },
+                        {
+                            "type": "upsertText",
+                            "path": "src/main.rs",
+                            "content": "fn main() {}\n"
                         }
                     ]
                 }),
@@ -810,6 +826,13 @@ mod tests {
         let json: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["activeFile"]["content"], "# Depo\n");
         assert_eq!(json["tree"]["nodes"][0]["path"], "README.md");
+        assert!(
+            json["tree"]["nodes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|node| node["path"] == "src/main.rs")
+        );
         assert_eq!(json["recentCommits"][0]["title"], "Initial commit");
     }
 

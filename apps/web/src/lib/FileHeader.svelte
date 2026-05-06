@@ -13,6 +13,7 @@
 
   let {
     diffStyle = $bindable(),
+    mode = 'file',
     fileName = 'README.md',
     lines = 0,
     size = 0,
@@ -20,6 +21,7 @@
     removals = 0
   }: {
     diffStyle: 'split' | 'unified';
+    mode?: 'file' | 'diff';
     fileName?: string;
     lines?: number;
     size?: number;
@@ -49,23 +51,25 @@
       <span>{formattedSize}</span>
     </div>
 
-    <div class="flex items-center gap-1.75 text-ui-sm text-fg-subtle">
-      {#if additions > 0}
-        <span class="text-diff-add-strong">+{additions}</span>
-      {/if}
-      {#if removals > 0}
-        <span class="text-danger">&#8722;{removals}</span>
-      {/if}
-    </div>
+    {#if mode === 'diff'}
+      <div class="flex items-center gap-1.75 text-ui-sm text-fg-subtle">
+        {#if additions > 0}
+          <span class="text-diff-add-strong">+{additions}</span>
+        {/if}
+        {#if removals > 0}
+          <span class="text-danger">&#8722;{removals}</span>
+        {/if}
+      </div>
 
-    <Toggle.Root bind:value={diffStyle}>
-      <Toggle.Button value="split" label="Horizontal diff view" title="Horizontal">
-        <Columns2 width={13} height={13} stroke-width={2} />
-      </Toggle.Button>
+      <Toggle.Root bind:value={diffStyle}>
+        <Toggle.Button value="split" label="Horizontal diff view" title="Horizontal">
+          <Columns2 width={13} height={13} stroke-width={2} />
+        </Toggle.Button>
 
-      <Toggle.Button value="unified" label="Stacked diff view" title="Stacked">
-        <Rows2 width={13} height={13} stroke-width={2} />
-      </Toggle.Button>
-    </Toggle.Root>
+        <Toggle.Button value="unified" label="Stacked diff view" title="Stacked">
+          <Rows2 width={13} height={13} stroke-width={2} />
+        </Toggle.Button>
+      </Toggle.Root>
+    {/if}
   </div>
 </div>

@@ -169,7 +169,6 @@
                       <span class="shrink-0 text-ui text-fg-muted">
                         {commit.author.name}
                       </span>
-                      <span class="text-fg-subtle">·</span>
                       <span class="w-16 shrink-0 text-right text-ui text-fg-subtle">
                         {timeAgo(commit.committedAt)}
                       </span>

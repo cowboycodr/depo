@@ -35,19 +35,21 @@
   class:opacity-40={dragging}
   data-active={active}
 >
-  <span class="pointer-events-none flex h-3.75 w-3.75 shrink-0 items-center justify-center">
-    <LanguageIcon name={baseName} />
+  <span class="relative flex h-3.75 w-3.75 shrink-0 items-center justify-center">
+    <span class="pointer-events-none flex items-center justify-center transition-opacity duration-100 group-hover:opacity-0">
+      <LanguageIcon name={baseName} />
+    </span>
+    <button
+      class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-100 group-hover:opacity-100 hover:text-fg-bright"
+      onclick={handleClose}
+      onmousedown={(e) => e.stopPropagation()}
+      tabindex="-1"
+      aria-label="Close tab"
+    >
+      <X width={10} height={10} stroke-width={2.5} />
+    </button>
   </span>
   <span class="truncate font-medium">
     {base}<span class="font-normal text-fg-secondary">{ext}</span>
   </span>
-  <button
-    class="flex h-3.75 w-3.75 shrink-0 items-center justify-center rounded opacity-0 transition-opacity duration-100 hover:text-fg-bright group-hover:opacity-100"
-    onclick={handleClose}
-    onmousedown={(e) => e.stopPropagation()}
-    tabindex="-1"
-    aria-label="Close tab"
-  >
-    <X width={10} height={10} stroke-width={2.5} />
-  </button>
 </a>

@@ -1,6 +1,8 @@
 pub mod api;
+pub mod auth;
 pub mod config;
 pub mod db;
+pub mod git_http;
 
 use axum::{
     Router,
@@ -9,9 +11,10 @@ use axum::{
 use depo_core::git::{GitCommand, StorageRoot};
 use sqlx::SqlitePool;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuthMode {
     Local,
+    Jwt { public_key_pem: String },
 }
 
 #[derive(Clone)]
@@ -20,6 +23,7 @@ pub struct AppState {
     pub storage: StorageRoot,
     pub git: GitCommand,
     pub inline_blob_limit: u64,
+    pub git_http_body_limit: usize,
     pub auth_mode: AuthMode,
 }
 
@@ -35,6 +39,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/repos/{owner}/{repo}/tree", get(api::get_tree))
         .route("/api/v1/repos/{owner}/{repo}/blob", get(api::get_blob))
         .route("/api/v1/repos/{owner}/{repo}/view", get(api::get_view))
+        .fallback(git_http::handle)
         .with_state(state)
 }
 

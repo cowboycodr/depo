@@ -794,6 +794,7 @@ mod tests {
             storage: depo_core::git::StorageRoot::new(temp.path().join("repos")).unwrap(),
             git: depo_core::git::GitCommand::default(),
             inline_blob_limit: 1024 * 1024,
+            git_http_body_limit: 64 * 1024 * 1024,
             auth_mode: AuthMode::Local,
         };
         (router(state), temp)

@@ -15,6 +15,7 @@ anyhow = "1.0.100"
 axum = "0.8.7"
 base64 = "0.22.1"
 depo-core = { path = "crates/depo-core" }
+jsonwebtoken = "9.3.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate"] }

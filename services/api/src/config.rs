@@ -2,6 +2,7 @@ use std::{env, net::SocketAddr, path::PathBuf, str::FromStr};
 
 use anyhow::{Context, bail};
 use depo_core::git::{StorageRoot, StorageRootError};
+use jsonwebtoken::DecodingKey;
 use sqlx::{
     SqlitePool,
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
@@ -16,6 +17,7 @@ pub struct ApiConfig {
     pub storage_root: StorageRoot,
     pub database_url: String,
     pub inline_blob_limit: u64,
+    pub git_http_body_limit: usize,
     pub auth_mode: AuthMode,
 }
 
@@ -23,9 +25,17 @@ impl ApiConfig {
     pub fn from_env() -> anyhow::Result<Self> {
         let auth_mode = match env::var("DEPO_AUTH_MODE") {
             Ok(value) if value == "local" => AuthMode::Local,
-            Ok(value) => bail!("unsupported DEPO_AUTH_MODE={value:?}; supported value is local"),
+            Ok(value) if value == "jwt" => {
+                let public_key_pem = auth_public_key_pem()?;
+                DecodingKey::from_ec_pem(public_key_pem.as_bytes())
+                    .context("DEPO_AUTH_PUBLIC_KEY_PEM must contain an ES256 public key")?;
+                AuthMode::Jwt { public_key_pem }
+            }
+            Ok(value) => {
+                bail!("unsupported DEPO_AUTH_MODE={value:?}; supported values are local and jwt")
+            }
             Err(_) => bail!(
-                "DEPO_AUTH_MODE must be set explicitly; use DEPO_AUTH_MODE=local for local development"
+                "DEPO_AUTH_MODE must be set explicitly; use DEPO_AUTH_MODE=local for local development or DEPO_AUTH_MODE=jwt for signed tokens"
             ),
         };
 
@@ -47,6 +57,12 @@ impl ApiConfig {
             .transpose()
             .context("DEPO_INLINE_BLOB_LIMIT must be an integer byte count")?
             .unwrap_or(1024 * 1024);
+        let git_http_body_limit = env::var("DEPO_GIT_HTTP_BODY_LIMIT")
+            .ok()
+            .map(|value| value.parse::<usize>())
+            .transpose()
+            .context("DEPO_GIT_HTTP_BODY_LIMIT must be an integer byte count")?
+            .unwrap_or(64 * 1024 * 1024);
 
         Ok(Self {
             bind_addr,
@@ -54,6 +70,7 @@ impl ApiConfig {
             storage_root,
             database_url,
             inline_blob_limit,
+            git_http_body_limit,
             auth_mode,
         })
     }
@@ -88,4 +105,20 @@ pub async fn connect_database(database_url: &str) -> anyhow::Result<SqlitePool> 
 fn default_data_dir() -> anyhow::Result<PathBuf> {
     let home = env::var("HOME").context("HOME must be set when DEPO_DATA_DIR is not provided")?;
     Ok(PathBuf::from(home).join(".depo"))
+}
+
+fn auth_public_key_pem() -> anyhow::Result<String> {
+    if let Ok(value) = env::var("DEPO_AUTH_PUBLIC_KEY_PEM") {
+        if value.trim().is_empty() {
+            bail!("DEPO_AUTH_PUBLIC_KEY_PEM must not be empty when DEPO_AUTH_MODE=jwt");
+        }
+        return Ok(value);
+    }
+
+    if let Ok(path) = env::var("DEPO_AUTH_PUBLIC_KEY_PATH") {
+        return std::fs::read_to_string(&path)
+            .with_context(|| format!("failed to read DEPO_AUTH_PUBLIC_KEY_PATH {path:?}"));
+    }
+
+    bail!("DEPO_AUTH_MODE=jwt requires DEPO_AUTH_PUBLIC_KEY_PEM or DEPO_AUTH_PUBLIC_KEY_PATH")
 }

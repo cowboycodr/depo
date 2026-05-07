@@ -20,6 +20,7 @@ async fn main() -> anyhow::Result<()> {
         storage: config.storage_root.clone(),
         git: GitCommand::default(),
         inline_blob_limit: config.inline_blob_limit,
+        git_http_body_limit: config.git_http_body_limit,
         auth_mode: config.auth_mode,
     };
 

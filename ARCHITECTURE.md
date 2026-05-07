@@ -18,7 +18,7 @@ Move fast by making the real boundaries real early.
 
 The first implementation pass should make repository storage, metadata, API contracts, and file reads real enough for the frontend to use. Avoid fake production paths, mock data hidden behind real endpoints, or UI surfaces that imply behavior the backend cannot perform.
 
-The immediate core spine is:
+The core spine now in the repository is:
 
 ```text
 scaffold workspace
@@ -27,9 +27,10 @@ scaffold workspace
   -> repo create/list/get APIs
   -> commit builder API
   -> tree/blob/read projections for the frontend
+  -> authenticated Git smart-HTTP clone/fetch/push
 ```
 
-Git smart-HTTP is required for Depo, but it does not need to be the first server feature. A commit builder plus read APIs prove the storage model, repository lifecycle, refs, commits, trees, and file rendering before the Git protocol surface is added.
+The commit builder and read APIs proved the storage model, repository lifecycle, refs, commits, trees, and file rendering before the Git protocol surface was added. Git smart-HTTP now uses the same bare repository storage, so `git clone`, `git fetch`, and `git push` update the data the web app reads.
 
 ---
 
@@ -60,13 +61,13 @@ depo/
 │       └── tsconfig.json
 │
 ├── services/
-│   └── api/                  # Rust HTTP API; Git smart-HTTP comes later
+│   └── api/                  # Rust HTTP API and Git smart-HTTP adapter
 │       ├── Cargo.toml
 │       ├── src/
 │       │   ├── main.rs       # Axum server bootstrap
 │       │   ├── api/          # REST endpoint handlers
-│       │   ├── git/          # Git protocol implementation
-│       │   ├── auth/         # JWT verification, scopes
+│       │   ├── git_http.rs   # Git smart-HTTP CGI adapter
+│       │   ├── auth.rs       # Git credential verification, JWT scopes
 │       │   ├── db/           # Schema, migrations, queries
 │       │   └── config.rs     # Environment + runtime config
 │       └── migrations/       # SQLx migrations
@@ -168,11 +169,13 @@ Runner (future)
 
 ## 4. Authentication Model
 
-All access requires JWT tokens signed by the instance owner. Each token:
+Production access uses JWT tokens signed by the instance owner. Each token:
 - Grants access to a **single repository** (except `org:read` tokens, which are org-wide).
 - Contains **explicit permission scopes**.
 - Has a **configurable time-to-live (TTL)**.
 - Is **customer-signed** for full control.
+
+The API also has an explicit `DEPO_AUTH_MODE=local` development mode. Local mode is intentionally not a production trust model: Git smart-HTTP still requires HTTP credentials, but accepts any non-empty token supplied as `git:{token}`. This keeps local Git clients exercising the real auth challenge and Basic credential path without pretending a local token is cryptographically verified.
 
 ### Token Structure
 
@@ -203,13 +206,20 @@ All access requires JWT tokens signed by the instance owner. Each token:
 - Private key held by the instance owner. Tokens are minted locally or via the SDK.
 - API verifies tokens locally using the stored public key. No external auth provider required.
 
+Implemented configuration:
+
+| Mode | Required config | Behavior |
+|------|-----------------|----------|
+| `DEPO_AUTH_MODE=local` | none | Git smart-HTTP requires `Basic` auth with username `git` and any non-empty password. |
+| `DEPO_AUTH_MODE=jwt` | `DEPO_AUTH_PUBLIC_KEY_PEM` or `DEPO_AUTH_PUBLIC_KEY_PATH` | Git smart-HTTP verifies ES256 JWTs, checks `repo`, and enforces `git:read`/`git:write`. |
+
 ### Git Remote Format
 
 ```
-https://t:{jwt}@host/{owner}/{repo}.git
+https://git:{jwt}@host/{owner}/{repo}.git
 ```
 
-- Username is always `t` (for token).
+- Username is always `git`.
 - Password is the JWT.
 - The `repo` claim in the JWT must match the repository path.
 - HTTP API routes still identify repositories explicitly with `{owner}/{repo}` path segments. Path identity says what resource is being touched; auth says whether the caller can touch it. This keeps logs, browser URLs, CLI calls, and self-hosted debugging clear.
@@ -271,10 +281,29 @@ Create repository response:
 Standard Git commands over HTTPS with JWT authentication:
 
 ```bash
-git clone https://t:JWT@host/owner/repo.git
+git clone https://git:JWT@host/owner/repo.git
 git push origin main
 git fetch origin
 ```
+
+Local development uses the same credential shape:
+
+```bash
+git clone http://git:local@127.0.0.1:3847/owner/repo.git
+git fetch origin
+git push origin main
+```
+
+Implemented smart-HTTP endpoints:
+
+| Method | Endpoint | Service |
+|--------|----------|---------|
+| `GET` | `/{owner}/{repo}.git/info/refs?service=git-upload-pack` | clone, fetch, pull, ls-remote |
+| `POST` | `/{owner}/{repo}.git/git-upload-pack` | upload-pack negotiation |
+| `GET` | `/{owner}/{repo}.git/info/refs?service=git-receive-pack` | push discovery |
+| `POST` | `/{owner}/{repo}.git/git-receive-pack` | receive-pack push |
+
+The adapter validates `{owner}` and `{repo}` through the same Depo ID types as the REST API, requires credentials before repository lookup, confirms the SQLite metadata record points at the configured storage root, and invokes `git http-backend` with argument arrays, explicit CGI environment, `GIT_PROJECT_ROOT`, `GIT_HTTP_EXPORT_ALL`, `REMOTE_USER`, and a timeout.
 
 ### Read APIs
 
@@ -651,12 +680,14 @@ These principles are derived from `AGENTS.md` and apply to every decision in thi
 
 ## 10. Current Build Status
 
-The initial core spine plus the first web-usable repository flow are implemented:
+The core spine, first web-usable repository flow, and authenticated Git remote flow are implemented:
 
 - Workspace layout exists: root `Cargo.toml`, root `package.json`, `pnpm-workspace.yaml`, `crates/depo-core`, `services/api`, and `packages/api-client`.
-- `depo-core` owns repository ID validation, repo file path validation, branch/ref/SHA validation, path-safe bare repo layout, Git command execution with argument arrays and timeouts, bare repo creation, commit construction, direct and recursive tree listing, blob reading, branch listing, and recent commit summaries.
-- `services/api` owns SQLite migrations and metadata access for `repositories`.
+- `depo-core` owns repository ID validation, repo file path validation, branch/ref/SHA validation, path-safe bare repo layout, Git command execution with argument arrays, stdin support, and timeouts, bare repo creation, commit construction, direct and recursive tree listing, blob reading, branch listing, and recent commit summaries.
+- `services/api` owns SQLite migrations, metadata access for `repositories`, Git smart-HTTP routing, and Git credential verification.
 - The API implements `POST /api/v1/repos`, `GET /api/v1/repos`, `GET /api/v1/repos/{owner}/{repo}`, `POST /api/v1/repos/{owner}/{repo}/commits`, `GET /api/v1/repos/{owner}/{repo}/tree`, `GET /api/v1/repos/{owner}/{repo}/blob`, and `GET /api/v1/repos/{owner}/{repo}/view`.
+- The Git remote surface implements authenticated smart-HTTP clone/fetch/push at `/{owner}/{repo}.git`.
+- `DEPO_AUTH_MODE=jwt` verifies ES256 JWTs for Git smart-HTTP using `DEPO_AUTH_PUBLIC_KEY_PEM` or `DEPO_AUTH_PUBLIC_KEY_PATH`. `DEPO_AUTH_MODE=local` remains an explicit local development mode.
 - `/view` proves the frontend read path by returning repository metadata, resolved ref data, branches, recursive tree nodes, actual active file text, and recent commits in one response.
 - `packages/api-client` wraps only the working API behavior.
 - `apps/web` is copied from the existing standalone SvelteKit UI and wired to real API data with minimal visual changes. The root page lists repositories and creates a repository plus its first `README.md` commit through the API client. Repository pages load `/view`, browse the returned tree with file links, and render actual text blobs in a normal source viewer.
@@ -666,16 +697,17 @@ Verification:
 - `pnpm run check`
 - `pnpm run test`
 - `pnpm run build`
+- API integration coverage creates a repository, clones it through smart HTTP, fetches a server-side commit, pushes a client-side commit back through receive-pack, pushes an initial branch into an empty repository, and verifies the pushed files through the core repository reader.
 - Local smoke: start `depo-api` with `DEPO_AUTH_MODE=local`, start `@depo/web`, submit the root create form, and confirm the rendered repository route shows the README content returned by `/view`.
 
 Near-term remaining work:
 
-- Add real JWT verification. The API currently starts only when `DEPO_AUTH_MODE=local` is set explicitly.
+- Enforce JWT scopes on the REST API. Git smart-HTTP has JWT verification; the REST endpoints still need the same auth boundary.
+- Stream Git smart-HTTP request and response bodies instead of buffering them around `git http-backend`. The current implementation has an explicit `DEPO_GIT_HTTP_BODY_LIMIT` default of 64 MiB and is correct for bounded repos, but large packfiles need streaming before Depo is ready for large production repositories.
 - Add pagination/conditional caching to large repository projections. The current `/view` tree is intentionally simple for the first web-usable slice and should not be treated as the final large-repo strategy.
 
 Still intentional non-goals:
 
-- Do not implement Git smart-HTTP before the storage model and commit/read path are proven.
 - Do not add a runner or CI execution surface yet.
 - Do not build UI that implies real Git behavior before the API supports it.
 - Do not hide missing auth behind silent fallbacks. A narrow local dev auth mode is acceptable only if it is explicit.

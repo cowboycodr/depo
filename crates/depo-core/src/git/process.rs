@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::thread;
@@ -28,6 +28,12 @@ impl GitCommand {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
+        if request.stdin.is_some() {
+            command.stdin(Stdio::piped());
+        } else {
+            command.stdin(Stdio::null());
+        }
+
         if let Some(cwd) = &request.cwd {
             command.current_dir(cwd);
         }
@@ -42,6 +48,10 @@ impl GitCommand {
             source,
         })?;
 
+        let stdin = match (request.stdin, child.stdin.take()) {
+            (Some(input), Some(mut pipe)) => Some(thread::spawn(move || pipe.write_all(&input))),
+            _ => None,
+        };
         let stdout = child.stdout.take().map(read_pipe);
         let stderr = child.stderr.take().map(read_pipe);
 
@@ -56,6 +66,7 @@ impl GitCommand {
             None => {
                 let _ = child.kill();
                 let _ = child.wait();
+                let _ = join_writer(stdin);
                 let stdout = join_reader(stdout);
                 let stderr = join_reader(stderr);
                 return Err(GitProcessError::TimedOut {
@@ -68,6 +79,7 @@ impl GitCommand {
             }
         };
 
+        let stdin_error = join_writer(stdin);
         let stdout = join_reader(stdout);
         let stderr = join_reader(stderr);
         let status = GitCommandStatus::from(status);
@@ -80,6 +92,9 @@ impl GitCommand {
                 stdout,
                 stderr,
             });
+        }
+        if let Some(error) = stdin_error {
+            return Err(GitProcessError::PipeWrite(error));
         }
 
         Ok(GitCommandOutput {
@@ -102,6 +117,7 @@ pub struct GitCommandRequest {
     cwd: Option<PathBuf>,
     env: Vec<(String, String)>,
     timeout: Option<Duration>,
+    stdin: Option<Vec<u8>>,
 }
 
 impl GitCommandRequest {
@@ -115,6 +131,7 @@ impl GitCommandRequest {
             cwd: None,
             env: Vec::new(),
             timeout: None,
+            stdin: None,
         }
     }
 
@@ -130,6 +147,11 @@ impl GitCommandRequest {
 
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
+        self
+    }
+
+    pub fn stdin(mut self, input: impl Into<Vec<u8>>) -> Self {
+        self.stdin = Some(input.into());
         self
     }
 }
@@ -209,6 +231,8 @@ pub enum GitProcessError {
     },
     #[error("failed to read git command pipe: {0}")]
     PipeRead(String),
+    #[error("failed to write git command stdin: {0}")]
+    PipeWrite(String),
 }
 
 impl GitProcessError {
@@ -242,6 +266,14 @@ fn join_reader(reader: Option<thread::JoinHandle<Result<Vec<u8>, std::io::Error>
         },
         None => Vec::new(),
     }
+}
+
+fn join_writer(writer: Option<thread::JoinHandle<Result<(), std::io::Error>>>) -> Option<String> {
+    writer.and_then(|handle| match handle.join() {
+        Ok(Ok(())) => None,
+        Ok(Err(error)) => Some(format!("pipe write failed: {error}")),
+        Err(_) => Some("pipe write thread panicked".to_owned()),
+    })
 }
 
 #[cfg(test)]

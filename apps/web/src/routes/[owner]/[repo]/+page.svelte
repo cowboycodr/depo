@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import type { PageData } from './$types';
   import FileHeader from '@/FileHeader.svelte';
   import FileViewer from '@/FileViewer.svelte';
@@ -10,17 +11,43 @@
 
   let diffStyle: 'split' | 'unified' = $state('unified');
   let sidebarOpen = $state(true);
+  let tabs = $state<string[]>([]);
 
   const activeFile = $derived(data.view?.activeFile ?? null);
-  const activePath = $derived(activeFile?.path ?? data.path ?? '');
+  const activePath = $derived(activeFile?.path ?? data.path ?? null);
   const content = $derived(activeFile?.content ?? '');
   const lineCount = $derived(countLines(content));
+
   const hrefForPath = (path: string) => {
     const query = new URLSearchParams();
     if (data.ref) query.set('ref', data.ref);
     query.set('path', path);
     return `?${query.toString()}`;
   };
+
+  $effect(() => {
+    const path = activeFile?.path;
+    if (path !== undefined && !tabs.includes(path)) {
+      tabs = [...tabs, path];
+    }
+  });
+
+  function closeTab(path: string) {
+    const idx = tabs.indexOf(path);
+    const next = tabs.filter((t) => t !== path);
+    tabs = next;
+    if (activePath === path) {
+      const destination = next[idx] ?? next[idx - 1];
+      goto(destination ? hrefForPath(destination) : `/${data.owner}/${data.repo}`);
+    }
+  }
+
+  function reorderTabs(fromIndex: number, toIndex: number) {
+    const next = [...tabs];
+    const [item] = next.splice(fromIndex, 1) as [string];
+    next.splice(toIndex, 0, item);
+    tabs = next;
+  }
 
   function countLines(value: string) {
     if (value.length === 0) return 0;
@@ -46,7 +73,7 @@
       <Sidebar.Panel>
         <RepositoryTree
           nodes={data.view?.tree.nodes ?? []}
-          selectedPath={activePath}
+          selectedPath={activePath ?? undefined}
           {hrefForPath}
         />
       </Sidebar.Panel>
@@ -60,7 +87,10 @@
         >
           <FileHeader
             bind:diffStyle
-            fileName={activeFile?.path ?? (activePath || 'Repository')}
+            tabs={tabs.map((p) => ({ path: p, href: hrefForPath(p) }))}
+            {activePath}
+            onCloseTab={closeTab}
+            onReorderTabs={reorderTabs}
             lines={lineCount}
             size={activeFile?.size ?? 0}
           />

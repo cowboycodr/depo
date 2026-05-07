@@ -102,56 +102,62 @@
 
 <div class="flex h-9.5 shrink-0 items-center justify-between gap-4 bg-surface-muted p-1.5">
   <Capsule.Root variant="secondary">
-    <Sidebar.ExpandControl>
-      <Capsule.Extension side="left" compact class="pr-2">
-        <Sidebar.ExpandButton />
+    {#if tabs.length > 0}
+      <Sidebar.ExpandControl>
+        <Capsule.Extension side="left" compact class="pr-2">
+          <Sidebar.ExpandButton />
+        </Capsule.Extension>
+      </Sidebar.ExpandControl>
+    {:else}
+      <Sidebar.ExpandControl />
+    {/if}
+
+    {#if tabs.length > 0}
+      <Capsule.Core>
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="relative flex"
+          ondragover={handleContainerDragOver}
+          ondrop={handleContainerDrop}
+          ondragleave={handleContainerDragLeave}
+        >
+          {#each tabs as tab, i (tab.path)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              data-tab-index={i}
+              draggable="true"
+              class="cursor-grab active:cursor-grabbing"
+              ondragstart={(e) => handleDragStart(e, i)}
+              ondragend={handleDragEnd}
+            >
+              <FileTab
+                path={tab.path}
+                href={tab.href}
+                active={tab.path === activePath}
+                dragging={dragIndex === i}
+                onclose={() => onCloseTab(tab.path)}
+              />
+            </div>
+          {/each}
+          {#if dragIndex !== null && dropX !== null}
+            <div
+              class="pointer-events-none absolute inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-accent"
+              style="left: {dropX}px"
+            ></div>
+          {/if}
+        </div>
+      </Capsule.Core>
+
+      <Capsule.Extension side="right" class="py-0.5 pl-2 pr-0.5">
+        <button
+          disabled
+          class="flex h-6 w-6 cursor-not-allowed items-center justify-center rounded-md text-fg-subtle opacity-40"
+          aria-label="Open file"
+        >
+          <Plus width={12} height={12} stroke-width={2} />
+        </button>
       </Capsule.Extension>
-    </Sidebar.ExpandControl>
-
-    <Capsule.Core>
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        class="relative flex"
-        ondragover={handleContainerDragOver}
-        ondrop={handleContainerDrop}
-        ondragleave={handleContainerDragLeave}
-      >
-        {#each tabs as tab, i (tab.path)}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            data-tab-index={i}
-            draggable="true"
-            class="cursor-grab active:cursor-grabbing"
-            ondragstart={(e) => handleDragStart(e, i)}
-            ondragend={handleDragEnd}
-          >
-            <FileTab
-              path={tab.path}
-              href={tab.href}
-              active={tab.path === activePath}
-              dragging={dragIndex === i}
-              onclose={() => onCloseTab(tab.path)}
-            />
-          </div>
-        {/each}
-        {#if dragIndex !== null && dropX !== null}
-          <div
-            class="pointer-events-none absolute inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-accent"
-            style="left: {dropX}px"
-          ></div>
-        {/if}
-      </div>
-    </Capsule.Core>
-
-    <Capsule.Extension side="right" class="py-0.5 pl-2 pr-0.5">
-      <button
-        disabled
-        class="flex h-6 w-6 cursor-not-allowed items-center justify-center rounded-md text-fg-subtle opacity-40"
-        aria-label="Open file"
-      >
-        <Plus width={12} height={12} stroke-width={2} />
-      </button>
-    </Capsule.Extension>
+    {/if}
   </Capsule.Root>
 
   <div class="flex shrink-0 items-center gap-2 font-mono whitespace-nowrap">

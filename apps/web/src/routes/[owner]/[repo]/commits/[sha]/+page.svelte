@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import GitCommit from '~icons/lucide/git-commit';
   import type { FileDiff as ApiFileDiff } from '@depo/api-client';
   import DiffViewer from '@/DiffViewer.svelte';
@@ -12,6 +14,7 @@
 
   let diffStyle: 'split' | 'unified' = $state('unified');
   let sidebarOpen = $state(true);
+  let tabs = $state<string[]>([]);
 
   const files = $derived(data.commit?.diff.files ?? []);
   const selectedFile = $derived(selectFile(files, data.file));
@@ -24,6 +27,17 @@
   );
   const selectedSize = $derived(selectedFile?.newFile.size ?? selectedFile?.oldFile.size ?? 0);
   const selectedLines = $derived(countLines(newContent));
+
+  $effect(() => {
+    const path = selectedPath;
+    if (path !== null) {
+      untrack(() => {
+        if (!tabs.includes(path)) {
+          tabs = [...tabs, path];
+        }
+      });
+    }
+  });
 
   function selectFile(files: ApiFileDiff[], requestedPath: string | null): ApiFileDiff | null {
     if (files.length === 0) return null;
@@ -97,9 +111,32 @@
     return 'text-fg-muted';
   }
 
-  function noop() {}
+  function closeTab(path: string) {
+    const idx = tabs.indexOf(path);
+    const next = tabs.filter((t) => t !== path);
+    tabs = next;
+    if (selectedPath === path) {
+      const destination = next[idx] ?? next[idx - 1];
+      if (destination) {
+        const destFile = files.find((f) => displayPath(f) === destination);
+        if (destFile) goto(hrefForFile(destFile));
+      } else {
+        const fallback = files.find((f) => displayPath(f) !== path);
+        if (fallback) {
+          goto(hrefForFile(fallback));
+        } else {
+          tabs = [path];
+        }
+      }
+    }
+  }
 
-  function reorderNoop(_fromIndex: number, _toIndex: number) {}
+  function reorderTabs(fromIndex: number, toIndex: number) {
+    const next = [...tabs];
+    const [item] = next.splice(fromIndex, 1) as [string];
+    next.splice(toIndex, 0, item);
+    tabs = next;
+  }
 </script>
 
 <svelte:head>
@@ -178,35 +215,20 @@
       <main class="relative min-w-0 flex-1 overflow-hidden">
         <div
           class={[
-            'relative grid h-full grid-rows-[auto_auto_minmax(0,1fr)] overflow-hidden rounded-tl-ui bg-surface-muted [transition:border-top-right-radius_200ms_ease-in-out]',
+            'relative grid h-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-tl-ui bg-surface-muted [transition:border-top-right-radius_200ms_ease-in-out]',
             !sidebarOpen ? 'rounded-tr-ui' : ''
           ].join(' ')}
         >
-          <div class="flex h-9.5 shrink-0 items-center justify-between gap-4 bg-surface-muted px-4">
-            {#if data.commit}
-              <div class="flex min-w-0 items-center gap-2">
-                <GitCommit width={14} height={14} class="shrink-0 text-fg-ref" />
-                <span class="min-w-0 truncate text-ui-md font-medium text-fg">
-                  {data.commit.commit.title}
-                </span>
-              </div>
-              <div class="flex shrink-0 items-center gap-2 font-mono text-ui text-fg-muted">
-                <span>{shortSha(data.commit.commit.sha)}</span>
-                <span class="text-diff-add-strong">+{data.commit.diff.stats.additions}</span>
-                <span class="text-danger">-{data.commit.diff.stats.removals}</span>
-              </div>
-            {:else}
-              <span class="text-ui text-fg-secondary">Commit</span>
-            {/if}
-          </div>
-
           <FileHeader
             bind:diffStyle
             mode="diff"
-            tabs={selectedPath ? [{ path: selectedPath, href: selectedFile ? hrefForFile(selectedFile) : '?' }] : []}
+            tabs={tabs.map((path) => {
+              const file = files.find((f) => displayPath(f) === path);
+              return { path, href: file ? hrefForFile(file) : '#' };
+            })}
             activePath={selectedPath}
-            onCloseTab={noop}
-            onReorderTabs={reorderNoop}
+            onCloseTab={closeTab}
+            onReorderTabs={reorderTabs}
             lines={selectedLines}
             size={selectedSize}
             additions={selectedFile?.additions ?? 0}

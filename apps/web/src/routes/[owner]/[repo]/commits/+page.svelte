@@ -40,6 +40,17 @@
     return groups;
   }
 
+  function formatFullDate(isoDate: string): string {
+    return new Date(isoDate).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  }
+
   function timeAgo(isoDate: string): string {
     const ms = Date.now() - new Date(isoDate).getTime();
     const s = Math.floor(ms / 1000);
@@ -164,25 +175,32 @@
                         {commit.title}
                       </span>
 
+                      <!-- Changes -->
+                      <span
+                        class="flex w-20 shrink-0 items-center justify-end gap-1 font-mono text-ui opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                      >
+                        {#if commit.additions > 0}
+                          <span class="text-diff-add-strong">+{commit.additions}</span>
+                        {/if}
+                        {#if commit.removals > 0}
+                          <span class="text-danger">-{commit.removals}</span>
+                        {/if}
+                      </span>
+
                       <!-- Author + time -->
                       <span class="shrink-0 text-ui text-fg-muted">
                         {commit.author.name}
                       </span>
-                      <span class="w-16 shrink-0 text-right text-ui text-fg-subtle">
+                      <span
+                        class="w-16 shrink-0 text-right text-ui text-fg-subtle"
+                        title={formatFullDate(commit.committedAt)}
+                      >
                         {timeAgo(commit.committedAt)}
                       </span>
 
-                      <!-- SHA (hidden on hover) / stats (shown on hover) -->
-                      <span class="flex w-20 shrink-0 items-center justify-end font-mono text-ui">
-                        <span class="text-fg-ref group-hover:hidden">{commit.sha.slice(0, 7)}</span>
-                        <span class="hidden items-center gap-1 group-hover:flex">
-                          {#if commit.additions > 0}
-                            <span class="text-diff-add-strong">+{commit.additions}</span>
-                          {/if}
-                          {#if commit.removals > 0}
-                            <span class="text-danger">-{commit.removals}</span>
-                          {/if}
-                        </span>
+                      <!-- SHA -->
+                      <span class="w-20 shrink-0 text-right font-mono text-ui text-fg-ref">
+                        {commit.sha.slice(0, 7)}
                       </span>
                     </a>
                   {/each}

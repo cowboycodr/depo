@@ -140,6 +140,7 @@
                   <!-- Date group header -->
                   <div class="flex items-center gap-3 px-4 pb-1 pt-3">
                     <span class="whitespace-nowrap text-ui font-medium text-fg-subtle">
+                      <span class="font-mono text-fg-muted">{group.commits.length}</span>
                       {group.label}
                     </span>
                     <div class="h-px flex-1 bg-line"></div>

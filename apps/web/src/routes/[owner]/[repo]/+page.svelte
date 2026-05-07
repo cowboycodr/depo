@@ -78,6 +78,8 @@
     repo={data.repo}
     refName={data.view?.ref.name ?? 'main'}
     commitSha={data.view?.ref.commitSha ?? null}
+    page="code"
+    commitCount={data.view?.recentCommits.length}
   />
 
   <Sidebar.Root bind:open={sidebarOpen}>

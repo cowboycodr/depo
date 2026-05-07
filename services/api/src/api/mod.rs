@@ -185,6 +185,28 @@ pub async fn get_blob(
     Ok(Json(BlobResponse::from(blob)))
 }
 
+pub async fn list_commits(
+    State(state): State<AppState>,
+    Path(params): Path<RepoPathParams>,
+    Query(query): Query<CommitsListQuery>,
+) -> Result<Json<CommitListResponse>, ApiError> {
+    let (record, repo) = load_repo(&state, &params.owner, &params.repo).await?;
+    let reference = read_reference(&record, query.ref_name.as_deref())?;
+    let limit = query.limit.unwrap_or(100).min(500) as usize;
+
+    let commits = match repo.resolve_ref(&reference) {
+        Ok(commit_sha) => repo
+            .recent_commits(&ValidatedRef::Commit(commit_sha), limit)?
+            .into_iter()
+            .map(CommitSummaryDto::from)
+            .collect(),
+        Err(RepositoryError::BranchMissing(_)) => Vec::new(),
+        Err(error) => return Err(ApiError::from(error)),
+    };
+
+    Ok(Json(CommitListResponse { commits }))
+}
+
 pub async fn get_view(
     State(state): State<AppState>,
     Path(params): Path<RepoPathParams>,
@@ -332,6 +354,19 @@ pub struct CreateRepoRequest {
     pub owner: String,
     pub name: String,
     pub default_branch: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitsListQuery {
+    #[serde(rename = "ref")]
+    pub ref_name: Option<String>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitListResponse {
+    pub commits: Vec<CommitSummaryDto>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -2,7 +2,9 @@ export type {
   BlobResponse,
   CommitAuthor,
   CommitChange,
+  CommitListResponse,
   CommitResponse,
+  CommitSummary,
   CreateCommitInput,
   CreateRepositoryInput,
   DepoErrorBody,
@@ -17,6 +19,7 @@ export type {
 
 import type {
   BlobResponse,
+  CommitListResponse,
   CommitResponse,
   CreateCommitInput,
   CreateRepositoryInput,
@@ -133,6 +136,21 @@ export class RepositoriesResource {
     return this.client.request<RepositoryView>(
       "GET",
       `${repoPath(owner, repo)}/view${readQuery(params)}`,
+    );
+  }
+
+  async commits(
+    owner: string,
+    repo: string,
+    params: ReadParams & { limit?: number } = {},
+  ): Promise<CommitListResponse> {
+    const query = new URLSearchParams();
+    if (params.ref !== undefined) query.set("ref", params.ref);
+    if (params.limit !== undefined) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return this.client.request<CommitListResponse>(
+      "GET",
+      `${repoPath(owner, repo)}/commits${qs.length > 0 ? `?${qs}` : ""}`,
     );
   }
 }

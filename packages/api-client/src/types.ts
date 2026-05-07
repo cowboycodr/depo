@@ -117,6 +117,17 @@ export type RepositoryView = {
   }>;
 };
 
+export type CommitSummary = {
+  sha: string;
+  title: string;
+  author: CommitAuthor;
+  committedAt: string;
+};
+
+export type CommitListResponse = {
+  commits: CommitSummary[];
+};
+
 export type ReadParams = {
   ref?: string;
   path?: string;

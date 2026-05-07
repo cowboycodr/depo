@@ -7,21 +7,24 @@
     owner,
     repo,
     refName = 'main',
-    commitSha
+    commitSha,
+    page = 'code',
+    commitCount
   }: {
     owner: string;
     repo: string;
     refName?: string;
     commitSha?: string | null;
+    page?: 'code' | 'commits';
+    commitCount?: number;
   } = $props();
 
-  type NavTab = { label: string; active: boolean; disabled?: boolean; count?: number };
-  const tabs: NavTab[] = [
-    { label: 'Code', active: true },
-    { label: 'Commits', active: false, disabled: true },
-    { label: 'Pull Requests', active: false, disabled: true },
-    { label: 'Issues', active: false, disabled: true }
-  ];
+  const tabs = $derived([
+    { label: 'Code', page: 'code', href: `/${owner}/${repo}` },
+    { label: 'Commits', page: 'commits', href: `/${owner}/${repo}/commits` },
+    { label: 'Pull Requests', page: 'prs', disabled: true },
+    { label: 'Issues', page: 'issues', disabled: true }
+  ]);
 </script>
 
 <nav class="flex h-10.5 shrink-0 items-stretch gap-0 p-0 pr-1.75">
@@ -78,7 +81,11 @@
 
     <Capsule.Core>
       {#each tabs as tab (tab.label)}
-        <Capsule.Tab active={tab.active} disabled={tab.disabled} count={tab.count}>
+        <Capsule.Tab
+          active={tab.page === page}
+          disabled={tab.disabled}
+          href={tab.disabled ? undefined : tab.href}
+        >
           {tab.label}
         </Capsule.Tab>
       {/each}

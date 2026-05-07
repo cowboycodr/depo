@@ -22,16 +22,22 @@
   const {
     nodes = [],
     selectedPath = '',
+    changedPaths: changedPathsProp,
     hrefForPath = defaultHrefForPath
   }: {
     nodes?: TreeEntry[];
     selectedPath?: string;
+    changedPaths?: string[];
     hrefForPath?: (path: string) => string;
   } = $props();
 
   const paths = $derived(pathsFromEntries(nodes));
   const tree = $derived(createTree(paths));
-  const changedPaths = $derived(new Set(selectedPath ? [selectedPath] : []));
+  const changedPaths = $derived(
+    changedPathsProp !== undefined
+      ? new Set(changedPathsProp)
+      : new Set(selectedPath ? [selectedPath] : [])
+  );
   const openFolders = new SvelteSet<string>();
 
   const isOpen = (path: string) => openFolders.has(path);

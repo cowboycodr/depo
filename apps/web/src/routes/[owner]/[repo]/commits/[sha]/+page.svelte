@@ -2,11 +2,11 @@
   import { goto } from '$app/navigation';
   import { untrack } from 'svelte';
   import GitCommit from '~icons/lucide/git-commit';
-  import type { FileDiff as ApiFileDiff } from '@depo/api-client';
+  import type { FileDiff as ApiFileDiff, TreeEntry } from '@depo/api-client';
   import DiffViewer from '@/DiffViewer.svelte';
   import FileHeader from '@/FileHeader.svelte';
-  import LanguageIcon from '@/LanguageIcon.svelte';
   import NavBar from '@/NavBar.svelte';
+  import RepositoryTree from '@/RepositoryTree.svelte';
   import * as Sidebar from '@/ui/Sidebar';
   import type { PageData } from './$types';
 
@@ -17,6 +17,20 @@
   let tabs = $state<string[]>([]);
 
   const files = $derived(data.commit?.diff.files ?? []);
+  const treeNodes = $derived<TreeEntry[]>(
+    files.map((f) => {
+      const path = displayPath(f);
+      return {
+        path,
+        name: path.split('/').pop() ?? path,
+        kind: 'file',
+        mode: f.newMode ?? f.oldMode ?? '100644',
+        size: f.newFile.size ?? f.oldFile.size ?? 0,
+        objectSha: f.newFile.objectSha ?? f.oldFile.objectSha ?? ''
+      };
+    })
+  );
+  const changedFilePaths = $derived(files.map((f) => displayPath(f)));
   const selectedFile = $derived(selectFile(files, data.file));
   const selectedPath = $derived(selectedFile ? displayPath(selectedFile) : null);
   const canRenderSelected = $derived(selectedFile ? canRenderFile(selectedFile) : false);
@@ -57,6 +71,10 @@
     return `?${query.toString()}`;
   }
 
+  function hrefForPath(path: string): string {
+    return `?${new URLSearchParams({ file: path }).toString()}`;
+  }
+
   function canRenderFile(file: ApiFileDiff): boolean {
     const oldRenderable = file.oldFile.kind === 'text' || file.oldFile.kind === 'missing';
     const newRenderable = file.newFile.kind === 'text' || file.newFile.kind === 'missing';
@@ -83,32 +101,6 @@
       hour: 'numeric',
       minute: '2-digit'
     });
-  }
-
-  function statusLabel(status: ApiFileDiff['status']): string {
-    switch (status) {
-      case 'added':
-        return 'A';
-      case 'modified':
-        return 'M';
-      case 'deleted':
-        return 'D';
-      case 'renamed':
-        return 'R';
-      case 'copied':
-        return 'C';
-      case 'typeChanged':
-        return 'T';
-      default:
-        return '?';
-    }
-  }
-
-  function statusClass(status: ApiFileDiff['status']): string {
-    if (status === 'added' || status === 'copied') return 'text-diff-add-strong';
-    if (status === 'deleted') return 'text-danger';
-    if (status === 'renamed') return 'text-fg-ref';
-    return 'text-fg-muted';
   }
 
   function closeTab(path: string) {
@@ -169,7 +161,9 @@
               </div>
             </div>
 
-            <div class="flex items-center justify-between px-3 py-2 font-mono text-ui text-fg-muted">
+            <div
+              class="flex items-center justify-between px-3 py-2 font-mono text-ui text-fg-muted"
+            >
               <span>{data.commit.diff.stats.filesChanged} files</span>
               <span>
                 <span class="text-diff-add-strong">+{data.commit.diff.stats.additions}</span>
@@ -177,36 +171,13 @@
               </span>
             </div>
 
-            <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-              <div class="space-y-0.5">
-                {#each data.commit.diff.files as file (displayPath(file))}
-                  {@const active = selectedFile === file}
-                  <a
-                    href={hrefForFile(file)}
-                    class={[
-                      'group grid h-[25px] grid-cols-[1fr_auto] items-center gap-2 rounded-avatar px-2 text-ui-md outline-none focus-visible:shadow-ring',
-                      active
-                        ? 'bg-surface-hover font-medium text-fg'
-                        : 'text-fg-secondary hover:bg-overlay-hover hover:text-fg'
-                    ].join(' ')}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <span class="flex min-w-0 items-center gap-1.5">
-                      <LanguageIcon name={displayPath(file)} />
-                      <span class="min-w-0 truncate">{displayPath(file)}</span>
-                    </span>
-                    <span class="flex shrink-0 items-center gap-1.5 font-mono text-ui-xs">
-                      <span class={statusClass(file.status)}>{statusLabel(file.status)}</span>
-                      {#if file.additions > 0}
-                        <span class="text-diff-add-strong">+{file.additions}</span>
-                      {/if}
-                      {#if file.removals > 0}
-                        <span class="text-danger">-{file.removals}</span>
-                      {/if}
-                    </span>
-                  </a>
-                {/each}
-              </div>
+            <div class="min-h-0 flex-1">
+              <RepositoryTree
+                nodes={treeNodes}
+                selectedPath={selectedPath ?? undefined}
+                changedPaths={changedFilePaths}
+                {hrefForPath}
+              />
             </div>
           {/if}
         </div>
@@ -237,7 +208,9 @@
 
           <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
             {#if data.error}
-              <div class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary"
+              >
                 {data.error.message}
               </div>
             {:else if selectedFile && canRenderSelected}
@@ -251,11 +224,15 @@
                 />
               {/key}
             {:else if selectedFile}
-              <div class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary"
+              >
                 {displayPath(selectedFile)} cannot be previewed inline.
               </div>
             {:else}
-              <div class="flex h-full items-center justify-center bg-surface-muted text-ui text-fg-subtle">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted text-ui text-fg-subtle"
+              >
                 No changed files
               </div>
             {/if}

@@ -17,7 +17,7 @@
 
 {#if sidebar.open()}
   <aside
-    class="flex-none overflow-hidden min-w-70 bg-canvas"
+    class="w-70 flex-none overflow-hidden bg-canvas"
     transition:slide={{ axis: 'x', duration: 200 }}
   >
     <div class="flex h-full flex-col">

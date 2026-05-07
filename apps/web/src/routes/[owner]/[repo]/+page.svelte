@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { untrack } from 'svelte';
   import type { PageData } from './$types';
   import FileHeader from '@/FileHeader.svelte';
   import FileViewer from '@/FileViewer.svelte';
@@ -27,8 +28,12 @@
 
   $effect(() => {
     const path = activeFile?.path;
-    if (path !== undefined && !tabs.includes(path)) {
-      tabs = [...tabs, path];
+    if (path !== undefined) {
+      untrack(() => {
+        if (!tabs.includes(path)) {
+          tabs = [...tabs, path];
+        }
+      });
     }
   });
 

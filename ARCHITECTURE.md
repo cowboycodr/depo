@@ -4,7 +4,7 @@
 
 Depo is a self-hosted code forge designed to run anywhere—from a single machine to distributed infrastructure—with low latency, robustness, and stability as core goals. It provides Git repository hosting, code review surfaces, CI, and live log streaming without requiring external accounts, telemetry, or monthly bills.
 
-This document describes the monorepo layout, technology stack, architecture boundaries, authentication model, and API surface. It is the source of truth for how the system is built and why.
+This document describes the broad monorepo architecture and early design direction. The focused, current source of truth now lives in [`docs/`](./docs/README.md), especially for implemented API contracts, storage behavior, security assumptions, web app behavior, and next work.
 
 ---
 
@@ -307,13 +307,15 @@ The adapter validates `{owner}` and `{repo}` through the same Depo ID types as t
 
 ### Read APIs
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/repos/{owner}/{repo}/tree?ref={ref}&path={path}` | List tree entries at a path |
-| `GET` | `/repos/{owner}/{repo}/blob?ref={ref}&path={path}` | Get file metadata and content |
-| `GET` | `/repos/{owner}/{repo}/commits?ref={ref}` | List commit history |
-| `GET` | `/repos/{owner}/{repo}/commits/{sha}` | Get commit metadata |
-| `GET` | `/repos/{owner}/{repo}/diff?base={sha}&head={sha}` | Get diff between refs |
+The granular current API contract is documented in [`docs/api.md`](./docs/api.md). The table below includes both implemented read endpoints and designed near-term endpoints.
+
+| Method | Endpoint | Status | Description |
+|--------|----------|--------|-------------|
+| `GET` | `/repos/{owner}/{repo}/tree?ref={ref}&path={path}` | Implemented | List tree entries at a path |
+| `GET` | `/repos/{owner}/{repo}/blob?ref={ref}&path={path}` | Implemented | Get file metadata and content |
+| `GET` | `/repos/{owner}/{repo}/commits?ref={ref}` | Implemented | List commit history |
+| `GET` | `/repos/{owner}/{repo}/commits/{sha}` | Designed next | Get commit metadata |
+| `GET` | `/repos/{owner}/{repo}/diff?base={sha}&head={sha}` | Designed next | Get diff between refs |
 
 Text blobs return actual source code inline when they are below the configured inline size limit:
 

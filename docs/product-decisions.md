@@ -94,4 +94,4 @@ The first useful imported-project flow is complete:
 6. View actual text file contents.
 7. View recent commits.
 
-The next useful product surface is commit inspection: a commit detail API, structured diffs, and a web commit page using the existing diff viewer.
+Commit inspection is now part of the first usable spine: commits list links to a commit detail page, and the commit detail API returns structured file diffs for the existing diff viewer.

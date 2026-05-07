@@ -36,6 +36,11 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/repos/{owner}/{repo}/commits",
             post(api::create_commit).get(api::list_commits),
         )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/commits/{sha}",
+            get(api::get_commit),
+        )
+        .route("/api/v1/repos/{owner}/{repo}/diff", get(api::get_diff))
         .route("/api/v1/repos/{owner}/{repo}/tree", get(api::get_tree))
         .route("/api/v1/repos/{owner}/{repo}/blob", get(api::get_blob))
         .route("/api/v1/repos/{owner}/{repo}/view", get(api::get_view))

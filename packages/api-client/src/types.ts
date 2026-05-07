@@ -128,6 +128,88 @@ export type CommitListResponse = {
   commits: CommitSummary[];
 };
 
+export type DiffStats = {
+  filesChanged: number;
+  additions: number;
+  removals: number;
+};
+
+export type DiffFileStatus =
+  | "added"
+  | "modified"
+  | "deleted"
+  | "renamed"
+  | "copied"
+  | "typeChanged"
+  | "unknown";
+
+export type DiffContentKind = "text" | "binary" | "tooLarge" | "missing" | "unloaded";
+
+export type DiffFileContent = {
+  path: string | null;
+  kind: DiffContentKind;
+  language: string | null;
+  mode: string | null;
+  size: number | null;
+  encoding: string | null;
+  content: string | null;
+  objectSha: string | null;
+};
+
+export type FileDiff = {
+  path: string;
+  oldPath: string | null;
+  newPath: string | null;
+  status: DiffFileStatus;
+  oldMode: string | null;
+  newMode: string | null;
+  additions: number;
+  removals: number;
+  binary: boolean;
+  oldFile: DiffFileContent;
+  newFile: DiffFileContent;
+};
+
+export type CommitDiff = {
+  baseSha: string | null;
+  headSha: string;
+  stats: DiffStats;
+  files: FileDiff[];
+};
+
+export type CommitDetail = {
+  sha: string;
+  treeSha: string;
+  parents: string[];
+  author: CommitAuthor;
+  authoredAt: string;
+  committer: CommitAuthor;
+  committedAt: string;
+  title: string;
+  message: string;
+};
+
+export type CommitDetailResponse = {
+  repo: Repository;
+  commit: CommitDetail;
+  diff: CommitDiff;
+};
+
+export type DiffResponse = {
+  repo: Repository;
+  diff: CommitDiff;
+};
+
+export type CommitDetailParams = {
+  path?: string | null;
+};
+
+export type DiffParams = {
+  base?: string | null;
+  head: string;
+  path?: string | null;
+};
+
 export type ReadParams = {
   ref?: string;
   path?: string;

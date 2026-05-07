@@ -36,7 +36,7 @@ Product API
   repositories, commits, projections, auth, future reviews/checks/jobs
 
 Interface
-  repository browser, file viewer, commit list, future diff/review/log surfaces
+  repository browser, file viewer, commit list, commit diff surface, future review/log surfaces
 
 Runner
   future job claiming, checkout, execution, streaming, cancellation
@@ -93,11 +93,11 @@ Implemented:
 - Blob reading through `cat-file`.
 - Branch listing through `for-each-ref`.
 - Recent commit summaries through `git log`.
+- Commit detail loading through `git show`.
+- Structured first-parent and root diff generation through `git diff-tree`.
 
 Not implemented:
 
-- Structured diff generation.
-- Commit detail loading.
 - Tag APIs.
 - Delete repository.
 - In-process Git implementation through `gitoxide`.
@@ -114,6 +114,8 @@ Implemented REST endpoints:
 - `GET /api/v1/repos/{owner}/{repo}/tree`
 - `GET /api/v1/repos/{owner}/{repo}/blob`
 - `GET /api/v1/repos/{owner}/{repo}/commits`
+- `GET /api/v1/repos/{owner}/{repo}/commits/{sha}`
+- `GET /api/v1/repos/{owner}/{repo}/diff`
 - `GET /api/v1/repos/{owner}/{repo}/view`
 
 Implemented Git protocol endpoints:
@@ -136,10 +138,11 @@ Implemented:
 - Multi-tab file browser state.
 - Text file viewer with line numbers.
 - Commit list page using real Git commit summaries.
+- Commit detail page with changed-file sidebar.
+- Text file diff rendering through `DiffViewer.svelte`.
 
 Existing but not fully wired to backend behavior:
 
-- `DiffViewer.svelte` uses `@pierre/diffs`, but there is no structured diff API yet.
 - File header diff controls exist for diff mode, but repository code mode currently renders source files.
 
 ## Runner And Deployment

@@ -307,15 +307,15 @@ The adapter validates `{owner}` and `{repo}` through the same Depo ID types as t
 
 ### Read APIs
 
-The granular current API contract is documented in [`docs/api.md`](./docs/api.md). The table below includes both implemented read endpoints and designed near-term endpoints.
+The granular current API contract is documented in [`docs/api.md`](./docs/api.md). The table below lists implemented read endpoints.
 
 | Method | Endpoint | Status | Description |
 |--------|----------|--------|-------------|
 | `GET` | `/repos/{owner}/{repo}/tree?ref={ref}&path={path}` | Implemented | List tree entries at a path |
 | `GET` | `/repos/{owner}/{repo}/blob?ref={ref}&path={path}` | Implemented | Get file metadata and content |
 | `GET` | `/repos/{owner}/{repo}/commits?ref={ref}` | Implemented | List commit history |
-| `GET` | `/repos/{owner}/{repo}/commits/{sha}` | Designed next | Get commit metadata |
-| `GET` | `/repos/{owner}/{repo}/diff?base={sha}&head={sha}` | Designed next | Get diff between refs |
+| `GET` | `/repos/{owner}/{repo}/commits/{sha}` | Implemented | Get commit metadata and file diffs |
+| `GET` | `/repos/{owner}/{repo}/diff?base={sha}&head={sha}` | Implemented | Get diff between commits |
 
 Text blobs return actual source code inline when they are below the configured inline size limit:
 

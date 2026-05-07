@@ -10,7 +10,9 @@ pub use process::{
     GitCommand, GitCommandOutput, GitCommandRequest, GitCommandStatus, GitProcessError,
 };
 pub use repository::{
-    BareRepository, BlobContent, BlobKind, BranchHead, CommitAuthor, CommitChange, CommitRefUpdate,
-    CommitRequest, CommitResult, CommitSummary, RepositoryError, TreeEntry, TreeEntryKind,
+    BareRepository, BlobContent, BlobKind, BranchHead, CommitAuthor, CommitChange, CommitDetail,
+    CommitDiff, CommitRefUpdate, CommitRequest, CommitResult, CommitSummary, DiffContentKind,
+    DiffFile, DiffFileContent, DiffFileStatus, DiffStats, RepositoryError, TreeEntry,
+    TreeEntryKind,
 };
 pub use storage::{StorageRoot, StorageRootError};

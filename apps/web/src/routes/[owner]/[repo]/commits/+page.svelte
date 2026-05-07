@@ -80,6 +80,13 @@
     return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase();
   }
 
+  function hrefForCommit(sha: string): string {
+    const query = new URLSearchParams();
+    if (data.ref) query.set('ref', data.ref);
+    const qs = query.toString();
+    return `/${data.owner}/${data.repo}/commits/${sha}${qs.length > 0 ? `?${qs}` : ''}`;
+  }
+
   const groups = $derived(groupByDate(data.commits));
 </script>
 
@@ -149,8 +156,9 @@
                   <!-- Commits in group -->
                   {#each group.commits as commit (commit.sha)}
                     {@const palette = avatarPalette(commit.author.name)}
-                    <div
-                      class="group flex h-8 items-center gap-3 px-4 hover:bg-overlay-hover"
+                    <a
+                      href={hrefForCommit(commit.sha)}
+                      class="group flex h-8 items-center gap-3 px-4 outline-none hover:bg-overlay-hover focus-visible:shadow-ring"
                     >
                       <!-- Author avatar -->
                       <div
@@ -179,7 +187,7 @@
                       >
                         {commit.sha.slice(0, 7)}
                       </span>
-                    </div>
+                    </a>
                   {/each}
                 {/each}
               </div>

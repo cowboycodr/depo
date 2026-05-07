@@ -32,6 +32,8 @@ pub enum RepositoryError {
     InvalidGitOutput(String),
     #[error("branch does not exist: {0}")]
     BranchMissing(String),
+    #[error("commit does not exist: {0}")]
+    CommitMissing(String),
     #[error("expected head {expected}, but branch currently points at {actual}")]
     HeadMismatch { expected: String, actual: String },
     #[error("commit request must include at least one change")]
@@ -366,6 +368,61 @@ impl BareRepository {
         Ok(commits)
     }
 
+    pub fn commit_detail(
+        &self,
+        sha: &GitSha,
+        inline_limit: u64,
+        content_path: Option<&RepoFilePath>,
+    ) -> Result<CommitDetail, RepositoryError> {
+        let commit_sha = self.resolve_ref(&ValidatedRef::Commit(sha.clone()))?;
+        let metadata = self.read_commit_metadata(&commit_sha)?;
+        let base_sha = metadata.parents.first().cloned();
+        let files = self.diff_files(base_sha.as_ref(), &commit_sha, inline_limit, content_path)?;
+        let stats = DiffStats::from_files(&files);
+
+        Ok(CommitDetail {
+            sha: metadata.sha,
+            tree_sha: metadata.tree_sha,
+            parents: metadata.parents,
+            author: metadata.author,
+            authored_at: metadata.authored_at,
+            committer: metadata.committer,
+            committed_at: metadata.committed_at,
+            title: metadata.title,
+            message: metadata.message,
+            diff: CommitDiff {
+                base_sha,
+                head_sha: commit_sha,
+                stats,
+                files,
+            },
+        })
+    }
+
+    pub fn diff_between(
+        &self,
+        base: Option<&GitSha>,
+        head: &GitSha,
+        inline_limit: u64,
+        content_path: Option<&RepoFilePath>,
+    ) -> Result<CommitDiff, RepositoryError> {
+        let head_sha = self.resolve_ref(&ValidatedRef::Commit(head.clone()))?;
+        let metadata = self.read_commit_metadata(&head_sha)?;
+        let base_sha = match base {
+            Some(sha) => Some(self.resolve_ref(&ValidatedRef::Commit(sha.clone()))?),
+            None => metadata.parents.first().cloned(),
+        };
+        let files = self.diff_files(base_sha.as_ref(), &head_sha, inline_limit, content_path)?;
+        let stats = DiffStats::from_files(&files);
+
+        Ok(CommitDiff {
+            base_sha,
+            head_sha,
+            stats,
+            files,
+        })
+    }
+
     pub fn resolve_ref(&self, reference: &ValidatedRef) -> Result<GitSha, RepositoryError> {
         match reference {
             ValidatedRef::Branch(branch) => self
@@ -373,9 +430,219 @@ impl BareRepository {
                 .ok_or_else(|| RepositoryError::BranchMissing(branch.as_str().to_owned())),
             ValidatedRef::Commit(sha) => {
                 let rev = format!("{}^{{commit}}", sha.as_str());
-                let output = self.git_run(["rev-parse", "--verify", rev.as_str()])?;
-                parse_git_sha_output(output.stdout_string()?)
+                match self.git_run(["rev-parse", "--verify", rev.as_str()]) {
+                    Ok(output) => parse_git_sha_output(output.stdout_string()?),
+                    Err(RepositoryError::Git(GitProcessError::Failed { .. })) => {
+                        Err(RepositoryError::CommitMissing(sha.as_str().to_owned()))
+                    }
+                    Err(error) => Err(error),
+                }
             }
+        }
+    }
+
+    fn read_commit_metadata(&self, sha: &GitSha) -> Result<CommitMetadata, RepositoryError> {
+        let format = "%H%x00%T%x00%P%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%B%x00";
+        let output = self.git_run_owned_with_env(
+            vec![
+                "show".to_owned(),
+                "-s".to_owned(),
+                format!("--format={format}"),
+                sha.as_str().to_owned(),
+            ],
+            std::iter::empty::<(&str, &str)>(),
+        )?;
+        let fields = output.stdout.split(|byte| *byte == 0).collect::<Vec<_>>();
+        if fields.len() < 10 {
+            return Err(RepositoryError::InvalidGitOutput(
+                "invalid commit metadata output".to_owned(),
+            ));
+        }
+
+        let parents = utf8_field(fields[2])?
+            .split_whitespace()
+            .map(GitSha::parse)
+            .collect::<Result<Vec<_>, _>>()?;
+        let message = utf8_field(fields[9])?.to_owned();
+        let title = message.lines().next().unwrap_or("").to_owned();
+
+        Ok(CommitMetadata {
+            sha: GitSha::parse(utf8_field(fields[0])?)?,
+            tree_sha: GitSha::parse(utf8_field(fields[1])?)?,
+            parents,
+            author: CommitAuthor {
+                name: utf8_field(fields[3])?.to_owned(),
+                email: utf8_field(fields[4])?.to_owned(),
+            },
+            authored_at: utf8_field(fields[5])?.to_owned(),
+            committer: CommitAuthor {
+                name: utf8_field(fields[6])?.to_owned(),
+                email: utf8_field(fields[7])?.to_owned(),
+            },
+            committed_at: utf8_field(fields[8])?.to_owned(),
+            title,
+            message,
+        })
+    }
+
+    fn diff_files(
+        &self,
+        base: Option<&GitSha>,
+        head: &GitSha,
+        inline_limit: u64,
+        content_path: Option<&RepoFilePath>,
+    ) -> Result<Vec<DiffFile>, RepositoryError> {
+        let raw_output = self.git_run_owned_with_env(
+            diff_tree_args("--raw", base, head),
+            std::iter::empty::<(&str, &str)>(),
+        )?;
+        let raw_entries = parse_raw_diff_entries(&raw_output.stdout)?;
+
+        let numstat_output = self.git_run_owned_with_env(
+            diff_tree_args("--numstat", base, head),
+            std::iter::empty::<(&str, &str)>(),
+        )?;
+        let numstat_entries = parse_numstat_entries(&numstat_output.stdout)?;
+        if raw_entries.len() != numstat_entries.len() {
+            return Err(RepositoryError::InvalidGitOutput(format!(
+                "diff raw entry count {} did not match numstat count {}",
+                raw_entries.len(),
+                numstat_entries.len()
+            )));
+        }
+
+        let selected_index = selected_diff_index(&raw_entries, content_path);
+        raw_entries
+            .into_iter()
+            .zip(numstat_entries)
+            .enumerate()
+            .map(|(index, (entry, line_stats))| {
+                let include_content = selected_index == Some(index);
+                let old_file = self.diff_blob_content(
+                    entry.old_object_sha.as_ref(),
+                    Some(entry.old_mode.as_str()),
+                    inline_limit,
+                    include_content,
+                )?;
+                let new_file = self.diff_blob_content(
+                    entry.new_object_sha.as_ref(),
+                    Some(entry.new_mode.as_str()),
+                    inline_limit,
+                    include_content,
+                )?;
+                let binary = line_stats.binary
+                    || old_file.kind == DiffContentKind::Binary
+                    || new_file.kind == DiffContentKind::Binary;
+
+                Ok(DiffFile {
+                    path: entry
+                        .new_path
+                        .as_ref()
+                        .or(entry.old_path.as_ref())
+                        .cloned()
+                        .unwrap_or_default(),
+                    old_path: entry.old_path,
+                    new_path: entry.new_path,
+                    status: entry.status,
+                    old_mode: mode_for_content(entry.old_mode, &old_file),
+                    new_mode: mode_for_content(entry.new_mode, &new_file),
+                    additions: line_stats.additions,
+                    removals: line_stats.removals,
+                    binary,
+                    old_file,
+                    new_file,
+                })
+            })
+            .collect()
+    }
+
+    fn diff_blob_content(
+        &self,
+        object_sha: Option<&GitSha>,
+        mode: Option<&str>,
+        inline_limit: u64,
+        include_content: bool,
+    ) -> Result<DiffFileContent, RepositoryError> {
+        let Some(object_sha) = object_sha else {
+            return Ok(DiffFileContent::missing());
+        };
+
+        if !include_content {
+            return Ok(DiffFileContent::unloaded(object_sha, mode));
+        }
+
+        if mode == Some("160000") {
+            return Ok(DiffFileContent {
+                kind: DiffContentKind::Binary,
+                mode: mode.map(ToOwned::to_owned),
+                size: Some(0),
+                encoding: None,
+                content: None,
+                object_sha: Some(object_sha.clone()),
+            });
+        }
+
+        let object_type = self.git_run(["cat-file", "-t", object_sha.as_str()])?;
+        if object_type.stdout_string()?.trim() != "blob" {
+            return Ok(DiffFileContent {
+                kind: DiffContentKind::Binary,
+                mode: mode.map(ToOwned::to_owned),
+                size: Some(0),
+                encoding: None,
+                content: None,
+                object_sha: Some(object_sha.clone()),
+            });
+        }
+
+        let size_output = self.git_run(["cat-file", "-s", object_sha.as_str()])?;
+        let size = size_output
+            .stdout_string()?
+            .trim()
+            .parse::<u64>()
+            .map_err(|_| {
+                RepositoryError::InvalidGitOutput("invalid blob size output".to_owned())
+            })?;
+
+        if size > inline_limit {
+            return Ok(DiffFileContent {
+                kind: DiffContentKind::TooLarge,
+                mode: mode.map(ToOwned::to_owned),
+                size: Some(size),
+                encoding: None,
+                content: None,
+                object_sha: Some(object_sha.clone()),
+            });
+        }
+
+        let output = self.git_run(["cat-file", "-p", object_sha.as_str()])?;
+        if output.stdout.contains(&0) {
+            return Ok(DiffFileContent {
+                kind: DiffContentKind::Binary,
+                mode: mode.map(ToOwned::to_owned),
+                size: Some(size),
+                encoding: None,
+                content: None,
+                object_sha: Some(object_sha.clone()),
+            });
+        }
+
+        match String::from_utf8(output.stdout) {
+            Ok(content) => Ok(DiffFileContent {
+                kind: DiffContentKind::Text,
+                mode: mode.map(ToOwned::to_owned),
+                size: Some(size),
+                encoding: Some("utf-8".to_owned()),
+                content: Some(content),
+                object_sha: Some(object_sha.clone()),
+            }),
+            Err(_) => Ok(DiffFileContent {
+                kind: DiffContentKind::Binary,
+                mode: mode.map(ToOwned::to_owned),
+                size: Some(size),
+                encoding: None,
+                content: None,
+                object_sha: Some(object_sha.clone()),
+            }),
         }
     }
 
@@ -535,6 +802,150 @@ pub struct CommitSummary {
     pub committed_at: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitDetail {
+    pub sha: GitSha,
+    pub tree_sha: GitSha,
+    pub parents: Vec<GitSha>,
+    pub author: CommitAuthor,
+    pub authored_at: String,
+    pub committer: CommitAuthor,
+    pub committed_at: String,
+    pub title: String,
+    pub message: String,
+    pub diff: CommitDiff,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CommitMetadata {
+    sha: GitSha,
+    tree_sha: GitSha,
+    parents: Vec<GitSha>,
+    author: CommitAuthor,
+    authored_at: String,
+    committer: CommitAuthor,
+    committed_at: String,
+    title: String,
+    message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitDiff {
+    pub base_sha: Option<GitSha>,
+    pub head_sha: GitSha,
+    pub stats: DiffStats,
+    pub files: Vec<DiffFile>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffStats {
+    pub files_changed: usize,
+    pub additions: u32,
+    pub removals: u32,
+}
+
+impl DiffStats {
+    fn from_files(files: &[DiffFile]) -> Self {
+        Self {
+            files_changed: files.len(),
+            additions: files.iter().map(|file| file.additions).sum(),
+            removals: files.iter().map(|file| file.removals).sum(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffFile {
+    pub path: String,
+    pub old_path: Option<String>,
+    pub new_path: Option<String>,
+    pub status: DiffFileStatus,
+    pub old_mode: Option<String>,
+    pub new_mode: Option<String>,
+    pub additions: u32,
+    pub removals: u32,
+    pub binary: bool,
+    pub old_file: DiffFileContent,
+    pub new_file: DiffFileContent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DiffFileStatus {
+    Added,
+    Modified,
+    Deleted,
+    Renamed,
+    Copied,
+    TypeChanged,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffFileContent {
+    pub kind: DiffContentKind,
+    pub mode: Option<String>,
+    pub size: Option<u64>,
+    pub encoding: Option<String>,
+    pub content: Option<String>,
+    pub object_sha: Option<GitSha>,
+}
+
+impl DiffFileContent {
+    fn missing() -> Self {
+        Self {
+            kind: DiffContentKind::Missing,
+            mode: None,
+            size: None,
+            encoding: None,
+            content: None,
+            object_sha: None,
+        }
+    }
+
+    fn unloaded(object_sha: &GitSha, mode: Option<&str>) -> Self {
+        Self {
+            kind: DiffContentKind::Unloaded,
+            mode: mode.map(ToOwned::to_owned),
+            size: None,
+            encoding: None,
+            content: None,
+            object_sha: Some(object_sha.clone()),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DiffContentKind {
+    Text,
+    Binary,
+    TooLarge,
+    Missing,
+    Unloaded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct RawDiffEntry {
+    old_mode: String,
+    new_mode: String,
+    old_object_sha: Option<GitSha>,
+    new_object_sha: Option<GitSha>,
+    status: DiffFileStatus,
+    old_path: Option<String>,
+    new_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct DiffLineStats {
+    additions: u32,
+    removals: u32,
+    binary: bool,
+}
+
 fn path_to_arg(path: &Path) -> Result<String, RepositoryError> {
     path.to_str()
         .map(ToOwned::to_owned)
@@ -616,6 +1027,194 @@ fn parse_tree_entries(
         });
     }
     Ok(entries)
+}
+
+fn diff_tree_args(kind: &str, base: Option<&GitSha>, head: &GitSha) -> Vec<String> {
+    let mut args = vec![
+        "diff-tree".to_owned(),
+        "-r".to_owned(),
+        "-z".to_owned(),
+        kind.to_owned(),
+        "--no-commit-id".to_owned(),
+        "--find-renames".to_owned(),
+        "--find-copies".to_owned(),
+    ];
+
+    if kind == "--raw" {
+        args.push("--full-index".to_owned());
+        args.push("--abbrev=40".to_owned());
+    }
+
+    match base {
+        Some(base) => {
+            args.push(base.as_str().to_owned());
+            args.push(head.as_str().to_owned());
+        }
+        None => {
+            args.push("--root".to_owned());
+            args.push(head.as_str().to_owned());
+        }
+    }
+
+    args
+}
+
+fn parse_raw_diff_entries(output: &[u8]) -> Result<Vec<RawDiffEntry>, RepositoryError> {
+    let mut records = output
+        .split(|byte| *byte == 0)
+        .filter(|record| !record.is_empty());
+    let mut entries = Vec::new();
+
+    while let Some(metadata_record) = records.next() {
+        let metadata = utf8_field(metadata_record)?;
+        let Some(metadata) = metadata.strip_prefix(':') else {
+            return Err(RepositoryError::InvalidGitOutput(
+                "diff raw metadata did not start with ':'".to_owned(),
+            ));
+        };
+        let fields = metadata.split_whitespace().collect::<Vec<_>>();
+        if fields.len() != 5 {
+            return Err(RepositoryError::InvalidGitOutput(format!(
+                "expected 5 diff raw fields in {metadata:?}"
+            )));
+        }
+
+        let status = parse_diff_status(fields[4]);
+        let path = records
+            .next()
+            .ok_or_else(|| RepositoryError::InvalidGitOutput("missing diff path".to_owned()))
+            .and_then(|record| Ok(utf8_field(record)?.to_owned()))?;
+
+        let (old_path, new_path) = match status {
+            DiffFileStatus::Added => (None, Some(path)),
+            DiffFileStatus::Deleted => (Some(path), None),
+            DiffFileStatus::Renamed | DiffFileStatus::Copied => {
+                let new_path = records
+                    .next()
+                    .ok_or_else(|| {
+                        RepositoryError::InvalidGitOutput(
+                            "missing rename or copy destination path".to_owned(),
+                        )
+                    })
+                    .and_then(|record| Ok(utf8_field(record)?.to_owned()))?;
+                (Some(path), Some(new_path))
+            }
+            DiffFileStatus::Modified | DiffFileStatus::TypeChanged | DiffFileStatus::Unknown => {
+                (Some(path.clone()), Some(path))
+            }
+        };
+
+        entries.push(RawDiffEntry {
+            old_mode: fields[0].to_owned(),
+            new_mode: fields[1].to_owned(),
+            old_object_sha: parse_optional_sha(fields[2])?,
+            new_object_sha: parse_optional_sha(fields[3])?,
+            status,
+            old_path,
+            new_path,
+        });
+    }
+
+    Ok(entries)
+}
+
+fn parse_numstat_entries(output: &[u8]) -> Result<Vec<DiffLineStats>, RepositoryError> {
+    let mut records = output
+        .split(|byte| *byte == 0)
+        .filter(|record| !record.is_empty());
+    let mut entries = Vec::new();
+
+    while let Some(record) = records.next() {
+        let text = utf8_field(record)?;
+        let fields = text.split('\t').collect::<Vec<_>>();
+        if fields.len() != 3 {
+            return Err(RepositoryError::InvalidGitOutput(format!(
+                "expected 3 numstat fields in {text:?}"
+            )));
+        }
+
+        if fields[2].is_empty() {
+            let _old_path = records.next().ok_or_else(|| {
+                RepositoryError::InvalidGitOutput("missing numstat old path".to_owned())
+            })?;
+            let _new_path = records.next().ok_or_else(|| {
+                RepositoryError::InvalidGitOutput("missing numstat new path".to_owned())
+            })?;
+        }
+
+        let binary = fields[0] == "-" || fields[1] == "-";
+        entries.push(DiffLineStats {
+            additions: parse_numstat_count(fields[0])?,
+            removals: parse_numstat_count(fields[1])?,
+            binary,
+        });
+    }
+
+    Ok(entries)
+}
+
+fn selected_diff_index(
+    entries: &[RawDiffEntry],
+    content_path: Option<&RepoFilePath>,
+) -> Option<usize> {
+    if entries.is_empty() {
+        return None;
+    }
+
+    let Some(content_path) = content_path else {
+        return Some(0);
+    };
+
+    entries
+        .iter()
+        .position(|entry| {
+            entry.old_path.as_deref() == Some(content_path.as_str())
+                || entry.new_path.as_deref() == Some(content_path.as_str())
+        })
+        .or(Some(0))
+}
+
+fn parse_diff_status(value: &str) -> DiffFileStatus {
+    match value.chars().next() {
+        Some('A') => DiffFileStatus::Added,
+        Some('M') => DiffFileStatus::Modified,
+        Some('D') => DiffFileStatus::Deleted,
+        Some('R') => DiffFileStatus::Renamed,
+        Some('C') => DiffFileStatus::Copied,
+        Some('T') => DiffFileStatus::TypeChanged,
+        _ => DiffFileStatus::Unknown,
+    }
+}
+
+fn parse_optional_sha(value: &str) -> Result<Option<GitSha>, RepositoryError> {
+    if value == ZERO_SHA {
+        Ok(None)
+    } else {
+        Ok(Some(GitSha::parse(value)?))
+    }
+}
+
+fn parse_numstat_count(value: &str) -> Result<u32, RepositoryError> {
+    if value == "-" {
+        Ok(0)
+    } else {
+        value.parse::<u32>().map_err(|_| {
+            RepositoryError::InvalidGitOutput(format!("invalid numstat count {value:?}"))
+        })
+    }
+}
+
+fn utf8_field(value: &[u8]) -> Result<&str, RepositoryError> {
+    std::str::from_utf8(value).map_err(|error| {
+        RepositoryError::InvalidGitOutput(format!("git output was not valid UTF-8: {error}"))
+    })
+}
+
+fn mode_for_content(mode: String, content: &DiffFileContent) -> Option<String> {
+    match content.kind {
+        DiffContentKind::Missing => None,
+        _ => Some(mode),
+    }
 }
 
 #[cfg(test)]
@@ -733,6 +1332,137 @@ mod tests {
         assert!(entries.contains(&("src/main.rs", TreeEntryKind::File)));
         assert!(entries.contains(&("src/lib", TreeEntryKind::Directory)));
         assert!(entries.contains(&("src/lib/mod.rs", TreeEntryKind::File)));
+    }
+
+    #[test]
+    fn returns_root_commit_detail_with_inline_diff() {
+        let (_temp, repo) = test_repo();
+        let result = repo
+            .create_commit(CommitRequest {
+                target_branch: BranchName::parse("main").unwrap(),
+                expected_head_sha: None,
+                message: "Initial commit".to_owned(),
+                author: CommitAuthor {
+                    name: "Kian".to_owned(),
+                    email: "kian@example.com".to_owned(),
+                },
+                changes: vec![CommitChange::Upsert {
+                    path: RepoFilePath::parse_file("README.md").unwrap(),
+                    content: b"# Depo\n".to_vec(),
+                    mode: "100644".to_owned(),
+                }],
+            })
+            .unwrap();
+
+        let detail = repo.commit_detail(&result.sha, 1024 * 1024, None).unwrap();
+        assert_eq!(detail.sha, result.sha);
+        assert!(detail.parents.is_empty());
+        assert_eq!(detail.title, "Initial commit");
+        assert_eq!(detail.diff.base_sha, None);
+        assert_eq!(detail.diff.stats.files_changed, 1);
+        assert_eq!(detail.diff.stats.additions, 1);
+
+        let file = &detail.diff.files[0];
+        assert_eq!(file.status, DiffFileStatus::Added);
+        assert_eq!(file.path, "README.md");
+        assert_eq!(file.old_file.kind, DiffContentKind::Missing);
+        assert_eq!(file.new_file.kind, DiffContentKind::Text);
+        assert_eq!(file.new_file.content.as_deref(), Some("# Depo\n"));
+    }
+
+    #[test]
+    fn returns_first_parent_file_diff_for_commit_update() {
+        let (_temp, repo) = test_repo();
+        let first = repo
+            .create_commit(CommitRequest {
+                target_branch: BranchName::parse("main").unwrap(),
+                expected_head_sha: None,
+                message: "Initial commit".to_owned(),
+                author: CommitAuthor {
+                    name: "Kian".to_owned(),
+                    email: "kian@example.com".to_owned(),
+                },
+                changes: vec![CommitChange::Upsert {
+                    path: RepoFilePath::parse_file("README.md").unwrap(),
+                    content: b"# Depo\n".to_vec(),
+                    mode: "100644".to_owned(),
+                }],
+            })
+            .unwrap();
+        let second = repo
+            .create_commit(CommitRequest {
+                target_branch: BranchName::parse("main").unwrap(),
+                expected_head_sha: Some(first.sha.clone()),
+                message: "Expand README".to_owned(),
+                author: CommitAuthor {
+                    name: "Kian".to_owned(),
+                    email: "kian@example.com".to_owned(),
+                },
+                changes: vec![
+                    CommitChange::Upsert {
+                        path: RepoFilePath::parse_file("README.md").unwrap(),
+                        content: b"# Depo\n\nReal code hosting.\n".to_vec(),
+                        mode: "100644".to_owned(),
+                    },
+                    CommitChange::Upsert {
+                        path: RepoFilePath::parse_file("src/main.rs").unwrap(),
+                        content: b"fn main() {}\n".to_vec(),
+                        mode: "100644".to_owned(),
+                    },
+                ],
+            })
+            .unwrap();
+
+        let detail = repo.commit_detail(&second.sha, 1024 * 1024, None).unwrap();
+        assert_eq!(detail.parents, vec![first.sha.clone()]);
+        assert_eq!(detail.diff.base_sha, Some(first.sha.clone()));
+        assert_eq!(detail.diff.head_sha, second.sha);
+
+        let file = &detail.diff.files[0];
+        assert_eq!(file.status, DiffFileStatus::Modified);
+        assert_eq!(file.old_file.content.as_deref(), Some("# Depo\n"));
+        assert_eq!(
+            file.new_file.content.as_deref(),
+            Some("# Depo\n\nReal code hosting.\n")
+        );
+        let unloaded_file = detail
+            .diff
+            .files
+            .iter()
+            .find(|file| file.path == "src/main.rs")
+            .unwrap();
+        assert_eq!(unloaded_file.new_file.kind, DiffContentKind::Unloaded);
+
+        let selected_path = RepoFilePath::parse_file("src/main.rs").unwrap();
+        let selected_detail = repo
+            .commit_detail(&detail.sha, 1024 * 1024, Some(&selected_path))
+            .unwrap();
+        let selected_file = selected_detail
+            .diff
+            .files
+            .iter()
+            .find(|file| file.path == "src/main.rs")
+            .unwrap();
+        assert_eq!(selected_file.new_file.kind, DiffContentKind::Text);
+        assert_eq!(
+            selected_file.new_file.content.as_deref(),
+            Some("fn main() {}\n")
+        );
+
+        let diff = repo
+            .diff_between(Some(&first.sha), &detail.sha, 1024 * 1024, None)
+            .unwrap();
+        assert_eq!(diff.base_sha, Some(first.sha));
+        assert_eq!(diff.files[0].path, "README.md");
+    }
+
+    #[test]
+    fn returns_commit_missing_for_unknown_commit() {
+        let (_temp, repo) = test_repo();
+        let missing = GitSha::parse("1111111111111111111111111111111111111111").unwrap();
+        let error = repo.commit_detail(&missing, 1024 * 1024, None).unwrap_err();
+
+        assert!(matches!(error, RepositoryError::CommitMissing(sha) if sha == missing.as_str()));
     }
 
     #[test]

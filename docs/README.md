@@ -30,14 +30,15 @@ Implemented now:
 - Create commits server-side through a commit builder API.
 - Read trees, blobs, branch heads, and recent commit summaries from real Git objects.
 - Use `/api/v1/repos/{owner}/{repo}/view` for a low-latency repository browser projection.
+- Inspect commit metadata and file diffs through commit detail and diff APIs.
 - Clone, fetch, and push through authenticated Git smart HTTP at `/{owner}/{repo}.git`.
 - Browse imported repositories in the web app, expand the tree, and view actual text file content.
 - View a commits list page backed by real Git commit data.
+- Open commit detail pages and render text diffs through the existing diff viewer.
 
 Not implemented yet:
 
 - REST API authentication.
-- Commit detail pages and structured diff API responses.
 - SSH Git remotes.
 - Streaming Git smart HTTP packfile bodies.
 - Runner, CI execution, checks, logs, and deployment automation.

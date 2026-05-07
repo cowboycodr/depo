@@ -1,7 +1,18 @@
 export type {
   BlobResponse,
   CommitAuthor,
+  CommitDetail,
+  CommitDetailParams,
+  CommitDetailResponse,
+  CommitDiff,
   CommitChange,
+  DiffContentKind,
+  DiffFileContent,
+  DiffFileStatus,
+  DiffParams,
+  DiffResponse,
+  DiffStats,
+  FileDiff,
   CommitListResponse,
   CommitResponse,
   CommitSummary,
@@ -19,11 +30,15 @@ export type {
 
 import type {
   BlobResponse,
+  CommitDetailParams,
+  CommitDetailResponse,
   CommitListResponse,
   CommitResponse,
   CreateCommitInput,
   CreateRepositoryInput,
   DepoErrorBody,
+  DiffParams,
+  DiffResponse,
   ReadParams,
   Repository,
   RepositoryListResponse,
@@ -151,6 +166,32 @@ export class RepositoriesResource {
     return this.client.request<CommitListResponse>(
       "GET",
       `${repoPath(owner, repo)}/commits${qs.length > 0 ? `?${qs}` : ""}`,
+    );
+  }
+
+  async commit(
+    owner: string,
+    repo: string,
+    sha: string,
+    params: CommitDetailParams = {},
+  ): Promise<CommitDetailResponse> {
+    const query = new URLSearchParams();
+    if (params.path !== undefined && params.path !== null) query.set("path", params.path);
+    const qs = query.toString();
+    return this.client.request<CommitDetailResponse>(
+      "GET",
+      `${repoPath(owner, repo)}/commits/${encodeURIComponent(sha)}${qs.length > 0 ? `?${qs}` : ""}`,
+    );
+  }
+
+  async diff(owner: string, repo: string, params: DiffParams): Promise<DiffResponse> {
+    const query = new URLSearchParams();
+    if (params.base !== undefined && params.base !== null) query.set("base", params.base);
+    query.set("head", params.head);
+    if (params.path !== undefined && params.path !== null) query.set("path", params.path);
+    return this.client.request<DiffResponse>(
+      "GET",
+      `${repoPath(owner, repo)}/diff?${query.toString()}`,
     );
   }
 }

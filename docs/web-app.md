@@ -10,7 +10,7 @@ The web app in `apps/web` was copied into Depo and wired to real API data. It sh
 - Tailwind 4 through `@tailwindcss/vite`.
 - TypeScript.
 - `@depo/api-client` for API access.
-- `@pierre/diffs` is installed and used by `DiffViewer.svelte`, but diff data is not wired yet.
+- `@pierre/diffs` is used by `DiffViewer.svelte` for commit file diffs.
 - Iconify lucide icons.
 
 ## API Origin
@@ -63,8 +63,18 @@ Current behavior:
 - Loads repository view and commits in parallel.
 - Groups commits by date.
 - Shows commit title, author, relative time, and short SHA.
+- Links each commit row to `/{owner}/{repo}/commits/{sha}`.
 
-Commit rows are not linked to commit detail pages yet because commit detail and diff APIs do not exist.
+### `/{owner}/{repo}/commits/{sha}`
+
+Current behavior:
+
+- Calls `client.repos.commit(owner, repo, sha, { path: file })`.
+- Uses one API request for commit metadata, changed file list, aggregate stats, and inline old/new contents for the selected file.
+- Renders a changed-file sidebar.
+- Renders the selected text diff through `DiffViewer.svelte`.
+- Shows non-preview messaging for binary or too-large file diffs.
+- Uses `file` query parameter to select a changed file.
 
 ## Components
 
@@ -73,7 +83,7 @@ Important product surfaces:
 - `RepositoryTree.svelte`: builds a visible tree from recursive API nodes and supports expandable folders.
 - `FileViewer.svelte`: renders actual text content with line numbers.
 - `FileHeader.svelte`: owns tabs, file metadata, and diff-mode controls.
-- `DiffViewer.svelte`: existing diff renderer wrapper for future commit/diff pages.
+- `DiffViewer.svelte`: diff renderer wrapper for old/new file contents.
 - `NavBar.svelte`: repository navigation between code and commits.
 
 ## UI Boundary
@@ -97,8 +107,6 @@ Avoid:
 
 ## Current Frontend Gaps
 
-- No commit detail route.
-- No diff route.
 - No real compare view.
 - No REST auth token handling.
 - No pagination UI for large trees or commit histories.

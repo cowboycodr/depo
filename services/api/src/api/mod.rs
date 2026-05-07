@@ -9,7 +9,8 @@ use axum::{
 use base64::{Engine, engine::general_purpose::STANDARD};
 use depo_core::git::{
     BareRepository, BlobContent, BlobKind, BranchName, CommitAuthor, CommitChange, CommitRequest,
-    GitSha, RepoFilePath, RepoId, RepositoryError, TreeEntry, TreeEntryKind, ValidatedRef,
+    DiffFile, DiffFileContent, GitSha, RepoFilePath, RepoId, RepositoryError, TreeEntry,
+    TreeEntryKind, ValidatedRef,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -207,6 +208,53 @@ pub async fn list_commits(
     Ok(Json(CommitListResponse { commits }))
 }
 
+pub async fn get_commit(
+    State(state): State<AppState>,
+    Path(params): Path<CommitPathParams>,
+    Query(query): Query<CommitDetailQuery>,
+) -> Result<Json<CommitDetailResponse>, ApiError> {
+    let (record, repo) = load_repo(&state, &params.owner, &params.repo).await?;
+    let sha = GitSha::parse(&params.sha)?;
+    let content_path = query
+        .path
+        .as_deref()
+        .map(RepoFilePath::parse_file)
+        .transpose()?;
+    let detail = repo.commit_detail(&sha, state.inline_blob_limit, content_path.as_ref())?;
+
+    Ok(Json(CommitDetailResponse {
+        repo: RepositoryDto::from(record),
+        commit: CommitDetailDto::from(&detail),
+        diff: DiffDto::from(detail.diff),
+    }))
+}
+
+pub async fn get_diff(
+    State(state): State<AppState>,
+    Path(params): Path<RepoPathParams>,
+    Query(query): Query<DiffQuery>,
+) -> Result<Json<DiffResponse>, ApiError> {
+    let (record, repo) = load_repo(&state, &params.owner, &params.repo).await?;
+    let head = GitSha::parse(&query.head)?;
+    let base = query.base.as_deref().map(GitSha::parse).transpose()?;
+    let content_path = query
+        .path
+        .as_deref()
+        .map(RepoFilePath::parse_file)
+        .transpose()?;
+    let diff = repo.diff_between(
+        base.as_ref(),
+        &head,
+        state.inline_blob_limit,
+        content_path.as_ref(),
+    )?;
+
+    Ok(Json(DiffResponse {
+        repo: RepositoryDto::from(record),
+        diff: DiffDto::from(diff),
+    }))
+}
+
 pub async fn get_view(
     State(state): State<AppState>,
     Path(params): Path<RepoPathParams>,
@@ -373,6 +421,25 @@ pub struct CommitListResponse {
 pub struct RepoPathParams {
     pub owner: String,
     pub repo: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitPathParams {
+    pub owner: String,
+    pub repo: String,
+    pub sha: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CommitDetailQuery {
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DiffQuery {
+    pub base: Option<String>,
+    pub head: String,
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -633,6 +700,136 @@ impl From<depo_core::git::CommitSummary> for CommitSummaryDto {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitDetailResponse {
+    pub repo: RepositoryDto,
+    pub commit: CommitDetailDto,
+    pub diff: DiffDto,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffResponse {
+    pub repo: RepositoryDto,
+    pub diff: DiffDto,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitDetailDto {
+    pub sha: GitSha,
+    pub tree_sha: GitSha,
+    pub parents: Vec<GitSha>,
+    pub author: CommitAuthor,
+    pub authored_at: String,
+    pub committer: CommitAuthor,
+    pub committed_at: String,
+    pub title: String,
+    pub message: String,
+}
+
+impl From<&depo_core::git::CommitDetail> for CommitDetailDto {
+    fn from(commit: &depo_core::git::CommitDetail) -> Self {
+        Self {
+            sha: commit.sha.clone(),
+            tree_sha: commit.tree_sha.clone(),
+            parents: commit.parents.clone(),
+            author: commit.author.clone(),
+            authored_at: commit.authored_at.clone(),
+            committer: commit.committer.clone(),
+            committed_at: commit.committed_at.clone(),
+            title: commit.title.clone(),
+            message: commit.message.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffDto {
+    pub base_sha: Option<GitSha>,
+    pub head_sha: GitSha,
+    pub stats: depo_core::git::DiffStats,
+    pub files: Vec<DiffFileDto>,
+}
+
+impl From<depo_core::git::CommitDiff> for DiffDto {
+    fn from(diff: depo_core::git::CommitDiff) -> Self {
+        Self {
+            base_sha: diff.base_sha,
+            head_sha: diff.head_sha,
+            stats: diff.stats,
+            files: diff.files.into_iter().map(DiffFileDto::from).collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffFileDto {
+    pub path: String,
+    pub old_path: Option<String>,
+    pub new_path: Option<String>,
+    pub status: depo_core::git::DiffFileStatus,
+    pub old_mode: Option<String>,
+    pub new_mode: Option<String>,
+    pub additions: u32,
+    pub removals: u32,
+    pub binary: bool,
+    pub old_file: DiffFileContentDto,
+    pub new_file: DiffFileContentDto,
+}
+
+impl From<DiffFile> for DiffFileDto {
+    fn from(file: DiffFile) -> Self {
+        let old_path = file.old_path.clone();
+        let new_path = file.new_path.clone();
+
+        Self {
+            path: file.path,
+            old_path: file.old_path,
+            new_path: file.new_path,
+            status: file.status,
+            old_mode: file.old_mode,
+            new_mode: file.new_mode,
+            additions: file.additions,
+            removals: file.removals,
+            binary: file.binary,
+            old_file: DiffFileContentDto::from_parts(old_path.as_deref(), file.old_file),
+            new_file: DiffFileContentDto::from_parts(new_path.as_deref(), file.new_file),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffFileContentDto {
+    pub path: Option<String>,
+    pub kind: depo_core::git::DiffContentKind,
+    pub language: Option<String>,
+    pub mode: Option<String>,
+    pub size: Option<u64>,
+    pub encoding: Option<String>,
+    pub content: Option<String>,
+    pub object_sha: Option<GitSha>,
+}
+
+impl DiffFileContentDto {
+    fn from_parts(path: Option<&str>, content: DiffFileContent) -> Self {
+        Self {
+            path: path.map(ToOwned::to_owned),
+            language: path.and_then(language_for_path).map(ToOwned::to_owned),
+            kind: content.kind,
+            mode: content.mode,
+            size: content.size,
+            encoding: content.encoding,
+            content: content.content,
+            object_sha: content.object_sha,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ApiError {
     status: StatusCode,
@@ -723,6 +920,11 @@ impl From<RepositoryError> for ApiError {
                 "ref_not_found",
                 format!("Branch {branch} does not exist."),
                 json!({ "branch": branch }),
+            ),
+            RepositoryError::CommitMissing(sha) => Self::not_found(
+                "commit_not_found",
+                format!("Commit {sha} does not exist."),
+                json!({ "sha": sha }),
             ),
             RepositoryError::HeadMismatch { expected, actual } => Self::conflict(
                 "head_mismatch",
@@ -870,6 +1072,174 @@ mod tests {
                 .any(|node| node["path"] == "src/main.rs")
         );
         assert_eq!(json["recentCommits"][0]["title"], "Initial commit");
+    }
+
+    #[tokio::test]
+    async fn commit_detail_and_diff_return_file_contents() {
+        let (app, _temp) = test_app().await;
+
+        let response = app
+            .clone()
+            .oneshot(json_request(
+                Method::POST,
+                "/api/v1/repos",
+                json!({
+                    "owner": "kian",
+                    "name": "depo",
+                    "defaultBranch": "main"
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let response = app
+            .clone()
+            .oneshot(json_request(
+                Method::POST,
+                "/api/v1/repos/kian/depo/commits",
+                json!({
+                    "targetBranch": "main",
+                    "message": "Initial commit",
+                    "author": { "name": "Kian", "email": "kian@example.com" },
+                    "changes": [
+                        {
+                            "type": "upsertText",
+                            "path": "README.md",
+                            "content": "# Depo\n"
+                        }
+                    ]
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let first: Value = serde_json::from_slice(&body).unwrap();
+        let first_sha = first["commit"]["sha"].as_str().unwrap();
+
+        let response = app
+            .clone()
+            .oneshot(json_request(
+                Method::POST,
+                "/api/v1/repos/kian/depo/commits",
+                json!({
+                    "targetBranch": "main",
+                    "expectedHeadSha": first_sha,
+                    "message": "Expand README",
+                    "author": { "name": "Kian", "email": "kian@example.com" },
+                    "changes": [
+                        {
+                            "type": "upsertText",
+                            "path": "README.md",
+                            "content": "# Depo\n\nReal code hosting.\n"
+                        },
+                        {
+                            "type": "upsertText",
+                            "path": "src/main.rs",
+                            "content": "fn main() {}\n"
+                        }
+                    ]
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let second: Value = serde_json::from_slice(&body).unwrap();
+        let second_sha = second["commit"]["sha"].as_str().unwrap();
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/api/v1/repos/kian/depo/commits/{second_sha}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        let detail: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(detail["commit"]["title"], "Expand README");
+        assert_eq!(detail["commit"]["parents"][0], first_sha);
+        assert_eq!(detail["diff"]["baseSha"], first_sha);
+        assert_eq!(detail["diff"]["headSha"], second_sha);
+        assert_eq!(detail["diff"]["files"][0]["status"], "modified");
+        assert_eq!(detail["diff"]["files"][0]["oldFile"]["content"], "# Depo\n");
+        assert_eq!(
+            detail["diff"]["files"][0]["newFile"]["content"],
+            "# Depo\n\nReal code hosting.\n"
+        );
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!(
+                        "/api/v1/repos/kian/depo/diff?base={first_sha}&head={second_sha}&path=src/main.rs"
+                    ))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        let diff: Value = serde_json::from_slice(&body).unwrap();
+        let selected = diff["diff"]["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|file| file["path"] == "src/main.rs")
+            .unwrap();
+        assert_eq!(selected["newFile"]["content"], "fn main() {}\n");
+        assert_eq!(selected["newFile"]["language"], "rust");
+    }
+
+    #[tokio::test]
+    async fn commit_detail_returns_not_found_for_missing_commit() {
+        let (app, _temp) = test_app().await;
+
+        let response = app
+            .clone()
+            .oneshot(json_request(
+                Method::POST,
+                "/api/v1/repos",
+                json!({
+                    "owner": "kian",
+                    "name": "depo",
+                    "defaultBranch": "main"
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v1/repos/kian/depo/commits/1111111111111111111111111111111111111111")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "{}",
+            String::from_utf8_lossy(&body)
+        );
+        let error: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(error["error"]["code"], "commit_not_found");
     }
 
     fn json_request(method: Method, uri: &str, body: Value) -> Request<Body> {

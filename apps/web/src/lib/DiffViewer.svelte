@@ -9,12 +9,16 @@
     diffStyle = 'unified',
     fileName = 'README.md',
     language,
-    content = ''
+    content = '',
+    oldContent = '',
+    newContent
   }: {
     diffStyle?: 'split' | 'unified';
     fileName?: string;
     language?: string;
     content?: string;
+    oldContent?: string;
+    newContent?: string;
   } = $props();
 
   let diffMount: HTMLDivElement | undefined = $state();
@@ -28,8 +32,12 @@
   };
 
   const fileLanguage = $derived(normalizeLanguage(fileName, language));
-  const oldFile = $derived<FileContents>({ name: fileName, lang: fileLanguage, contents: '' });
-  const newFile = $derived<FileContents>({ name: fileName, lang: fileLanguage, contents: content });
+  const oldFile = $derived<FileContents>({ name: fileName, lang: fileLanguage, contents: oldContent });
+  const newFile = $derived<FileContents>({
+    name: fileName,
+    lang: fileLanguage,
+    contents: newContent ?? content
+  });
 
   const applyOptions = () => {
     diff?.setOptions({

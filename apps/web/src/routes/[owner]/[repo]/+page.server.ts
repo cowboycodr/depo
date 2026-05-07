@@ -12,7 +12,9 @@ export const load: PageServerLoad = async ({ fetch, params, url }) => {
   try {
     const view = await client.repos.view(params.owner, params.repo, { ref, path });
 
-    if (path === undefined && view.activeFile === null) {
+    const nofile = url.searchParams.get('nofile') === '1';
+
+    if (!nofile && path === undefined && view.activeFile === null) {
       const readmePath = view.tree.nodes.find(
         (node) => node.kind === 'file' && README_NAMES.has(node.name)
       )?.path;

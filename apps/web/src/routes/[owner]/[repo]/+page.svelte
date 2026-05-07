@@ -38,7 +38,14 @@
     tabs = next;
     if (activePath === path) {
       const destination = next[idx] ?? next[idx - 1];
-      goto(destination ? hrefForPath(destination) : `/${data.owner}/${data.repo}`);
+      if (destination) {
+        goto(hrefForPath(destination));
+      } else {
+        const query = new URLSearchParams();
+        if (data.ref) query.set('ref', data.ref);
+        query.set('nofile', '1');
+        goto(`/${data.owner}/${data.repo}?${query.toString()}`);
+      }
     }
   }
 
@@ -108,8 +115,8 @@
                 {activeFile.path} cannot be previewed inline.
               </div>
             {:else}
-              <div class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary">
-                Select a file from the tree.
+              <div class="flex h-full items-center justify-center bg-surface-muted text-ui text-fg-subtle">
+                No file selected
               </div>
             {/if}
           </div>

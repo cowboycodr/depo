@@ -2,6 +2,11 @@
 @import 'tailwindcss/preflight';
 @import 'tailwindcss/utilities';
 
+html,
+body {
+  overscroll-behavior: none;
+}
+
 /* ─── Dark theme (default) ─────────────────────────────────────────────────── */
 :root {
   color-scheme: dark;

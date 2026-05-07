@@ -42,7 +42,7 @@
     {base}<span class="font-normal text-fg-secondary">{ext}</span>
   </span>
   <button
-    class="flex h-3.75 w-3.75 shrink-0 items-center justify-center rounded hover:text-fg-bright"
+    class="flex h-3.75 w-3.75 shrink-0 items-center justify-center rounded opacity-0 transition-opacity duration-100 hover:text-fg-bright group-hover:opacity-100"
     onclick={handleClose}
     onmousedown={(e) => e.stopPropagation()}
     tabindex="-1"

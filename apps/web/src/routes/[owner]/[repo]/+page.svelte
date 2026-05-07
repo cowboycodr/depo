@@ -18,6 +18,20 @@
   const activePath = $derived(activeFile?.path ?? data.path ?? null);
   const content = $derived(activeFile?.content ?? '');
   const lineCount = $derived(countLines(content));
+  const commitBadge = $derived(
+    activeFile?.lastCommit
+      ? {
+          sha: activeFile.lastCommit.sha,
+          title: activeFile.lastCommit.title,
+          href: `/${data.owner}/${data.repo}/commits/${activeFile.lastCommit.sha}`,
+          author: activeFile.lastCommit.author,
+          committedAt: activeFile.lastCommit.committedAt,
+          additions: activeFile.lastCommit.additions,
+          removals: activeFile.lastCommit.removals,
+          description: activeFile.lastCommit.description
+        }
+      : undefined
+  );
 
   const hrefForPath = (path: string) => {
     const query = new URLSearchParams();
@@ -107,6 +121,7 @@
             onReorderTabs={reorderTabs}
             lines={lineCount}
             size={activeFile?.size ?? 0}
+            {commitBadge}
           />
           <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
             {#if data.error}

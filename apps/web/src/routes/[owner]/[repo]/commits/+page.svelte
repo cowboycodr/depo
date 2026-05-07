@@ -1,5 +1,4 @@
 <script lang="ts">
-  import GitBranch from '~icons/lucide/git-branch';
   import type { CommitSummary } from '@depo/api-client';
   import NavBar from '@/NavBar.svelte';
   import type { PageData } from './$types';
@@ -111,17 +110,9 @@
           class="relative grid h-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-tl-ui rounded-tr-ui bg-surface-muted"
         >
           <!-- Header bar -->
-          <div
-            class="flex h-9.5 shrink-0 items-center justify-between gap-4 bg-surface-muted px-4"
-          >
-            <div class="flex items-center gap-1.5 font-mono text-ui text-fg-muted">
-              <GitBranch width={11} height={11} />
-              <span class="text-fg-secondary">{refName}</span>
-              <span class="text-fg-slash">·</span>
-              <span class="text-fg-ref">{commitSha ? commitSha.slice(0, 7) : 'empty'}</span>
-            </div>
+          <div class="flex h-9.5 shrink-0 items-center justify-end bg-surface-muted px-4">
             {#if data.commits.length > 0}
-              <span class="text-ui text-fg-subtle">
+              <span class="font-mono text-ui text-fg-muted">
                 {data.commits.length} commit{data.commits.length !== 1 ? 's' : ''}
               </span>
             {/if}
@@ -181,11 +172,17 @@
                         {timeAgo(commit.committedAt)}
                       </span>
 
-                      <!-- SHA -->
-                      <span
-                        class="w-[52px] shrink-0 text-right font-mono text-ui text-fg-ref"
-                      >
-                        {commit.sha.slice(0, 7)}
+                      <!-- SHA (hidden on hover) / stats (shown on hover) -->
+                      <span class="flex w-20 shrink-0 items-center justify-end font-mono text-ui">
+                        <span class="text-fg-ref group-hover:hidden">{commit.sha.slice(0, 7)}</span>
+                        <span class="hidden items-center gap-1 group-hover:flex">
+                          {#if commit.additions > 0}
+                            <span class="text-diff-add-strong">+{commit.additions}</span>
+                          {/if}
+                          {#if commit.removals > 0}
+                            <span class="text-danger">-{commit.removals}</span>
+                          {/if}
+                        </span>
                       </span>
                     </a>
                   {/each}

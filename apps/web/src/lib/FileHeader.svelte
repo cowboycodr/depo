@@ -4,6 +4,7 @@
   import Rows2 from '~icons/lucide/rows-2';
   import FileTab from '@/FileTab.svelte';
   import * as Capsule from '@/ui/Capsule';
+  import * as Popover from '@/ui/Popover';
   import * as Sidebar from '@/ui/Sidebar';
   import * as Toggle from '@/ui/Toggle';
 
@@ -22,7 +23,8 @@
     lines = 0,
     size = 0,
     additions = 0,
-    removals = 0
+    removals = 0,
+    commitBadge
   }: {
     diffStyle: 'split' | 'unified';
     mode?: 'file' | 'diff';
@@ -34,9 +36,29 @@
     size?: number;
     additions?: number;
     removals?: number;
+    commitBadge?: {
+      sha: string;
+      title: string;
+      href: string;
+      author: { name: string; email: string };
+      committedAt: string;
+      additions: number;
+      removals: number;
+      description?: string | null;
+    };
   } = $props();
 
   const formattedSize = $derived(formatBytes(size));
+
+  function commitDate(iso: string): string {
+    return new Date(iso).toLocaleString('en', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
 
   let dragIndex = $state<number | null>(null);
   let dropIndex = $state<number | null>(null);
@@ -161,6 +183,45 @@
   </Capsule.Root>
 
   <div class="flex shrink-0 items-center gap-2 font-mono whitespace-nowrap">
+    {#if commitBadge && mode === 'file'}
+      <Popover.Root>
+        <a
+          href={commitBadge.href}
+          class="font-mono text-ui text-fg-ref transition-colors hover:text-fg-ref/70"
+        >
+          {commitBadge.sha.slice(0, 7)}
+        </a>
+
+        <Popover.Content class="w-72 overflow-hidden rounded-md border border-line bg-surface shadow-md whitespace-normal">
+          <div class="flex items-center justify-between px-3 py-1.5">
+            <span class="font-mono text-ui text-fg-ref">{commitBadge.sha.slice(0, 12)}</span>
+            {#if commitBadge.additions > 0 || commitBadge.removals > 0}
+              <span class="flex items-center gap-1.5 font-mono text-ui">
+                {#if commitBadge.additions > 0}
+                  <span class="text-diff-add-strong">+{commitBadge.additions}</span>
+                {/if}
+                {#if commitBadge.removals > 0}
+                  <span class="text-danger">-{commitBadge.removals}</span>
+                {/if}
+              </span>
+            {/if}
+          </div>
+
+          <div class="border-t border-line px-3 py-2">
+            <p class="break-words font-sans text-ui-md font-medium leading-snug text-fg">{commitBadge.title}</p>
+            {#if commitBadge.description}
+              <p class="mt-1.5 whitespace-pre-wrap font-sans text-ui text-fg-secondary">{commitBadge.description}</p>
+            {/if}
+          </div>
+
+          <div class="flex items-center justify-between border-t border-line px-3 py-1.5 text-ui text-fg-muted">
+            <span class="font-sans">{commitBadge.author.name}</span>
+            <span class="font-mono">{commitDate(commitBadge.committedAt)}</span>
+          </div>
+        </Popover.Content>
+      </Popover.Root>
+    {/if}
+
     {#if activePath}
       <div class="mr-0.5 flex items-center gap-1.75 text-ui text-fg-secondary">
         <span>{lines} lines</span>

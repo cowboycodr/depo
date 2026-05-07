@@ -627,6 +627,7 @@ pub struct BlobResponse {
     pub commit_sha: GitSha,
     pub object_sha: GitSha,
     pub etag: String,
+    pub last_commit: Option<CommitSummaryDto>,
 }
 
 impl From<BlobContent> for BlobResponse {
@@ -634,6 +635,7 @@ impl From<BlobContent> for BlobResponse {
         Self {
             language: language_for_path(&blob.path).map(ToOwned::to_owned),
             etag: blob_etag(&blob),
+            last_commit: blob.last_commit.map(CommitSummaryDto::from),
             path: blob.path,
             kind: blob.kind,
             mode: blob.mode,
@@ -687,6 +689,10 @@ pub struct CommitSummaryDto {
     pub title: String,
     pub author: CommitAuthor,
     pub committed_at: String,
+    pub additions: u32,
+    pub removals: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 }
 
 impl From<depo_core::git::CommitSummary> for CommitSummaryDto {
@@ -696,6 +702,9 @@ impl From<depo_core::git::CommitSummary> for CommitSummaryDto {
             title: commit.title,
             author: commit.author,
             committed_at: commit.committed_at,
+            additions: commit.additions,
+            removals: commit.removals,
+            description: commit.description,
         }
     }
 }

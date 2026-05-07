@@ -89,6 +89,7 @@ export type BlobResponse = {
   commitSha: string;
   objectSha: string;
   etag: string;
+  lastCommit: CommitSummary | null;
 };
 
 export type RepositoryView = {
@@ -122,6 +123,9 @@ export type CommitSummary = {
   title: string;
   author: CommitAuthor;
   committedAt: string;
+  additions: number;
+  removals: number;
+  description?: string | null;
 };
 
 export type CommitListResponse = {

@@ -257,6 +257,8 @@ impl BareRepository {
             return Err(RepositoryError::PathNotFile(path.as_str().to_owned()));
         }
 
+        let last_commit = self.last_commit_for_file(&commit_sha, path).ok();
+
         if entry.size > inline_limit {
             return Ok(BlobContent {
                 path: path.as_str().to_owned(),
@@ -267,6 +269,7 @@ impl BareRepository {
                 content: None,
                 commit_sha,
                 object_sha: entry.object_sha,
+                last_commit,
             });
         }
 
@@ -295,6 +298,7 @@ impl BareRepository {
             content,
             commit_sha,
             object_sha: entry.object_sha,
+            last_commit,
         })
     }
 
@@ -333,39 +337,79 @@ impl BareRepository {
         limit: usize,
     ) -> Result<Vec<CommitSummary>, RepositoryError> {
         let commit_sha = self.resolve_ref(reference)?;
-        let limit = limit.clamp(1, 100).to_string();
-        let output = self.git_run([
-            "log",
-            "-n",
-            limit.as_str(),
-            "--format=%H%x09%an%x09%ae%x09%cI%x09%s",
-            commit_sha.as_str(),
-        ])?;
+        let limit_str = limit.clamp(1, 100).to_string();
+        let output = self.git_run_owned_with_env(
+            vec![
+                "log".to_owned(),
+                "-n".to_owned(),
+                limit_str,
+                "--format=%x00%H%x09%an%x09%ae%x09%cI%x09%s".to_owned(),
+                "--shortstat".to_owned(),
+                commit_sha.as_str().to_owned(),
+            ],
+            std::iter::empty::<(&str, &str)>(),
+        )?;
 
-        let mut commits = Vec::new();
         let stdout = String::from_utf8(output.stdout).map_err(RepositoryError::GitUtf8)?;
-        for record in stdout.lines() {
+        let mut commits = Vec::new();
+        for record in stdout.split('\x00') {
+            let record = record.trim();
             if record.is_empty() {
                 continue;
             }
-            let fields: Vec<&str> = record.splitn(5, '\t').collect();
-            if fields.len() != 5 {
-                return Err(RepositoryError::InvalidGitOutput(
-                    "invalid commit log output".to_owned(),
-                ));
-            }
-            commits.push(CommitSummary {
-                sha: GitSha::parse(fields[0])?,
-                title: fields[4].to_owned(),
-                author: CommitAuthor {
-                    name: fields[1].to_owned(),
-                    email: fields[2].to_owned(),
-                },
-                committed_at: fields[3].to_owned(),
-            });
+            commits.push(parse_commit_with_stats(record)?);
         }
 
         Ok(commits)
+    }
+
+    fn last_commit_for_file(
+        &self,
+        commit_sha: &GitSha,
+        path: &RepoFilePath,
+    ) -> Result<CommitSummary, RepositoryError> {
+        let output = self.git_run_owned_with_env(
+            vec![
+                "log".to_owned(),
+                "-n".to_owned(),
+                "1".to_owned(),
+                "--format=%H%x00%an%x00%ae%x00%cI%x00%s%x00%b%x00".to_owned(),
+                commit_sha.as_str().to_owned(),
+                "--".to_owned(),
+                path.as_str().to_owned(),
+            ],
+            std::iter::empty::<(&str, &str)>(),
+        )?;
+
+        let fields = output.stdout.split(|b| *b == 0).collect::<Vec<_>>();
+        if fields.len() < 5 || fields[0].is_empty() {
+            return Err(RepositoryError::PathNotFound(path.as_str().to_owned()));
+        }
+
+        let sha = utf8_field(fields[0])?.trim();
+        if sha.is_empty() {
+            return Err(RepositoryError::PathNotFound(path.as_str().to_owned()));
+        }
+
+        let description = if fields.len() > 5 {
+            let body = utf8_field(fields[5])?.trim();
+            if body.is_empty() { None } else { Some(body.to_owned()) }
+        } else {
+            None
+        };
+
+        Ok(CommitSummary {
+            sha: GitSha::parse(sha)?,
+            title: utf8_field(fields[4])?.trim_end().to_owned(),
+            author: CommitAuthor {
+                name: utf8_field(fields[1])?.to_owned(),
+                email: utf8_field(fields[2])?.to_owned(),
+            },
+            committed_at: utf8_field(fields[3])?.trim_end().to_owned(),
+            additions: 0,
+            removals: 0,
+            description,
+        })
     }
 
     pub fn commit_detail(
@@ -778,6 +822,7 @@ pub struct BlobContent {
     pub content: Option<String>,
     pub commit_sha: GitSha,
     pub object_sha: GitSha,
+    pub last_commit: Option<CommitSummary>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -800,6 +845,10 @@ pub struct CommitSummary {
     pub title: String,
     pub author: CommitAuthor,
     pub committed_at: String,
+    pub additions: u32,
+    pub removals: u32,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1215,6 +1264,65 @@ fn mode_for_content(mode: String, content: &DiffFileContent) -> Option<String> {
         DiffContentKind::Missing => None,
         _ => Some(mode),
     }
+}
+
+fn parse_commit_with_stats(record: &str) -> Result<CommitSummary, RepositoryError> {
+    let mut lines = record.lines();
+
+    let header = lines.next().unwrap_or("").trim();
+    if header.is_empty() {
+        return Err(RepositoryError::InvalidGitOutput(
+            "empty commit record".to_owned(),
+        ));
+    }
+
+    let fields: Vec<&str> = header.splitn(5, '\t').collect();
+    if fields.len() != 5 {
+        return Err(RepositoryError::InvalidGitOutput(format!(
+            "invalid commit fields in {:?}",
+            header
+        )));
+    }
+
+    let mut additions = 0u32;
+    let mut removals = 0u32;
+    for line in lines {
+        if line.contains("changed") {
+            let (a, r) = parse_shortstat_line(line);
+            additions = a;
+            removals = r;
+            break;
+        }
+    }
+
+    Ok(CommitSummary {
+        sha: GitSha::parse(fields[0])?,
+        title: fields[4].trim_end().to_owned(),
+        author: CommitAuthor {
+            name: fields[1].to_owned(),
+            email: fields[2].to_owned(),
+        },
+        committed_at: fields[3].to_owned(),
+        additions,
+        removals,
+        description: None,
+    })
+}
+
+fn parse_shortstat_line(line: &str) -> (u32, u32) {
+    let mut additions = 0u32;
+    let mut removals = 0u32;
+
+    if let Some(pos) = line.find(" insertion") {
+        let start = line[..pos].rfind(' ').map_or(0, |i| i + 1);
+        additions = line[start..pos].trim().parse().unwrap_or(0);
+    }
+    if let Some(pos) = line.find(" deletion") {
+        let start = line[..pos].rfind(' ').map_or(0, |i| i + 1);
+        removals = line[start..pos].trim().parse().unwrap_or(0);
+    }
+
+    (additions, removals)
 }
 
 #[cfg(test)]

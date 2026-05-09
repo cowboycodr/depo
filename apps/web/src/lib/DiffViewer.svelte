@@ -32,7 +32,11 @@
   };
 
   const fileLanguage = $derived(normalizeLanguage(fileName, language));
-  const oldFile = $derived<FileContents>({ name: fileName, lang: fileLanguage, contents: oldContent });
+  const oldFile = $derived<FileContents>({
+    name: fileName,
+    lang: fileLanguage,
+    contents: oldContent
+  });
   const newFile = $derived<FileContents>({
     name: fileName,
     lang: fileLanguage,

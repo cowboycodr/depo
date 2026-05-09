@@ -25,8 +25,8 @@ export const load: PageServerLoad = async ({ fetch }) => {
 export const actions = {
   default: async ({ request, fetch }) => {
     const data = await request.formData();
-    const owner = (data.get('owner') as string ?? '').trim();
-    const name = (data.get('name') as string ?? '').trim();
+    const owner = ((data.get('owner') as string) ?? '').trim();
+    const name = ((data.get('name') as string) ?? '').trim();
 
     if (!owner || !name) {
       return fail(400, {

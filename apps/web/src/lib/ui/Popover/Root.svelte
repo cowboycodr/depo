@@ -32,6 +32,7 @@
 </script>
 
 <div
+  role="presentation"
   class={['relative', className].filter(Boolean).join(' ')}
   onmouseenter={show}
   onmouseleave={scheduleHide}

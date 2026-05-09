@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import type { CommitSummary } from '@depo/api-client';
   import NavBar from '@/NavBar.svelte';
+  import { appHref, type AppHref } from '@/navigation';
   import type { PageData } from './$types';
 
   const { data }: { data: PageData } = $props();
@@ -90,11 +92,11 @@
     return ((first[0] ?? '') + (last[0] ?? '')).toUpperCase();
   }
 
-  function hrefForCommit(sha: string): string {
+  function hrefForCommit(sha: string): AppHref {
     const query = new URLSearchParams();
     if (data.ref) query.set('ref', data.ref);
     const qs = query.toString();
-    return `/${data.owner}/${data.repo}/commits/${sha}${qs.length > 0 ? `?${qs}` : ''}`;
+    return appHref(`/${data.owner}/${data.repo}/commits/${sha}${qs.length > 0 ? `?${qs}` : ''}`);
   }
 
   const groups = $derived(groupByDate(data.commits));
@@ -132,15 +134,11 @@
           <!-- Commits list -->
           <div class="overflow-y-auto">
             {#if data.error}
-              <div
-                class="flex h-full items-center justify-center p-8 text-ui text-fg-secondary"
-              >
+              <div class="flex h-full items-center justify-center p-8 text-ui text-fg-secondary">
                 {data.error.message}
               </div>
             {:else if data.commits.length === 0}
-              <div
-                class="flex h-full items-center justify-center p-8 text-ui text-fg-subtle"
-              >
+              <div class="flex h-full items-center justify-center p-8 text-ui text-fg-subtle">
                 No commits yet
               </div>
             {:else}
@@ -159,7 +157,7 @@
                   {#each group.commits as commit (commit.sha)}
                     {@const palette = avatarPalette(commit.author.name)}
                     <a
-                      href={hrefForCommit(commit.sha)}
+                      href={resolve(hrefForCommit(commit.sha))}
                       class="group flex h-8 items-center gap-3 px-4 outline-none hover:bg-overlay-hover focus-visible:shadow-ring"
                     >
                       <!-- Author avatar -->

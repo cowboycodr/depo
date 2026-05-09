@@ -1,7 +1,17 @@
 <script lang="ts">
   import Search from '~icons/lucide/search';
+  import { appHref, type AppHref } from '@/navigation';
   import * as Button from '@/ui/Button';
   import * as Capsule from '@/ui/Capsule';
+
+  type RepoPage = 'code' | 'commits' | 'prs' | 'issues';
+  type RepoNavItem = {
+    label: string;
+    page: RepoPage;
+    href?: AppHref;
+    disabled?: boolean;
+    count?: number;
+  };
 
   const {
     owner,
@@ -15,16 +25,23 @@
     repo: string;
     refName?: string;
     commitSha?: string | null;
-    page?: 'code' | 'commits';
+    page?: RepoPage;
     commitCount?: number;
   } = $props();
 
+  let selectedPage = $derived(page);
+
   const tabs = $derived([
-    { label: 'Code', page: 'code', href: `/${owner}/${repo}` },
-    { label: 'Commits', page: 'commits', href: `/${owner}/${repo}/commits` },
+    { label: 'Code', page: 'code', href: appHref(`/${owner}/${repo}`) },
+    {
+      label: 'Commits',
+      page: 'commits',
+      href: appHref(`/${owner}/${repo}/commits`),
+      count: commitCount
+    },
     { label: 'Pull Requests', page: 'prs', disabled: true },
     { label: 'Issues', page: 'issues', disabled: true }
-  ]);
+  ] satisfies RepoNavItem[]);
 </script>
 
 <nav class="flex h-10.5 shrink-0 items-stretch gap-0 p-0 pr-1.75">
@@ -79,17 +96,17 @@
       <span>{repo}</span>
     </Capsule.Extension>
 
-    <Capsule.Core>
-      {#each tabs as tab (tab.label)}
-        <Capsule.Tab
-          active={tab.page === page}
-          disabled={tab.disabled}
-          href={tab.disabled ? undefined : tab.href}
-        >
-          {tab.label}
-        </Capsule.Tab>
-      {/each}
-    </Capsule.Core>
+    <Capsule.SegmentedNav
+      items={tabs.map((tab) => ({
+        id: tab.page,
+        label: tab.label,
+        href: tab.disabled ? undefined : tab.href,
+        disabled: tab.disabled,
+        count: tab.count
+      }))}
+      activeId={selectedPage}
+      onSelect={(id) => (selectedPage = id as RepoPage)}
+    />
 
     <Capsule.Extension side="right">
       <span class="text-fg-secondary">{refName}</span>

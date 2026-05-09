@@ -16,7 +16,7 @@
 
 <div class="h-full w-full min-w-0 overflow-auto bg-surface-muted font-mono text-code leading-code">
   <div class="min-w-max">
-    {#each lines as line, index}
+    {#each lines as line, index (index)}
       <div class="grid grid-cols-[3rem_minmax(0,1fr)]">
         <span class="select-none pr-3 text-right text-fg-ref">{index + 1}</span>
         <code class="whitespace-pre pr-4 text-fg">{line || ' '}</code>

@@ -21,11 +21,13 @@
     transition:slide={{ axis: 'x', duration: 200 }}
   >
     <div class="flex h-full flex-col">
-      <div class="flex h-9.5 shrink-0 items-center justify-end px-1">
+      <div class="flex h-9.5 shrink-0 items-center border-b border-line px-1.5">
         {#if controls}
           {@render controls()}
         {:else}
-          <CollapseButton />
+          <div class="ml-auto">
+            <CollapseButton />
+          </div>
         {/if}
       </div>
 

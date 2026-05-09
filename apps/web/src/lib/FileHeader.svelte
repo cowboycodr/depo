@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { flip } from 'svelte/animate';
+  import { resolve } from '$app/paths';
   import Plus from '~icons/lucide/plus';
   import Columns2 from '~icons/lucide/columns-2';
   import Rows2 from '~icons/lucide/rows-2';
   import FileTab from '@/FileTab.svelte';
+  import type { AppHref } from '@/navigation';
   import * as Capsule from '@/ui/Capsule';
   import * as Popover from '@/ui/Popover';
   import * as Sidebar from '@/ui/Sidebar';
@@ -28,7 +31,7 @@
   }: {
     diffStyle: 'split' | 'unified';
     mode?: 'file' | 'diff';
-    tabs: Array<{ path: string; href: string }>;
+    tabs: Array<{ path: string; href: AppHref }>;
     activePath: string | null;
     onCloseTab: (path: string) => void;
     onReorderTabs: (fromIndex: number, toIndex: number) => void;
@@ -39,7 +42,7 @@
     commitBadge?: {
       sha: string;
       title: string;
-      href: string;
+      href: AppHref;
       author: { name: string; email: string };
       committedAt: string;
       additions: number;
@@ -149,6 +152,7 @@
               data-tab-index={i}
               draggable="true"
               class="cursor-grab active:cursor-grabbing"
+              animate:flip={{ duration: 160 }}
               ondragstart={(e) => handleDragStart(e, i)}
               ondragend={handleDragEnd}
             >
@@ -163,7 +167,7 @@
           {/each}
           {#if dragIndex !== null && dropX !== null}
             <div
-              class="pointer-events-none absolute inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-accent"
+              class="pointer-events-none absolute inset-y-0.5 w-0.5 -translate-x-1/2 rounded-full bg-fg-muted"
               style="left: {dropX}px"
             ></div>
           {/if}
@@ -186,13 +190,15 @@
     {#if commitBadge && mode === 'file'}
       <Popover.Root>
         <a
-          href={commitBadge.href}
+          href={resolve(commitBadge.href)}
           class="font-mono text-ui text-fg-ref transition-colors hover:text-fg-ref/70"
         >
           {commitBadge.sha.slice(0, 7)}
         </a>
 
-        <Popover.Content class="w-72 overflow-hidden rounded-md border border-line bg-surface shadow-md whitespace-normal">
+        <Popover.Content
+          class="w-72 overflow-hidden rounded-md border border-line bg-surface shadow-md whitespace-normal"
+        >
           <div class="flex items-center justify-between px-3 py-1.5">
             <span class="font-mono text-ui text-fg-ref">{commitBadge.sha.slice(0, 12)}</span>
             {#if commitBadge.additions > 0 || commitBadge.removals > 0}
@@ -208,13 +214,19 @@
           </div>
 
           <div class="border-t border-line px-3 py-2">
-            <p class="break-words font-sans text-ui-md font-medium leading-snug text-fg">{commitBadge.title}</p>
+            <p class="break-words font-sans text-ui-md font-medium leading-snug text-fg">
+              {commitBadge.title}
+            </p>
             {#if commitBadge.description}
-              <p class="mt-1.5 whitespace-pre-wrap font-sans text-ui text-fg-secondary">{commitBadge.description}</p>
+              <p class="mt-1.5 whitespace-pre-wrap font-sans text-ui text-fg-secondary">
+                {commitBadge.description}
+              </p>
             {/if}
           </div>
 
-          <div class="flex items-center justify-between border-t border-line px-3 py-1.5 text-ui text-fg-muted">
+          <div
+            class="flex items-center justify-between border-t border-line px-3 py-1.5 text-ui text-fg-muted"
+          >
             <span class="font-sans">{commitBadge.author.name}</span>
             <span class="font-mono">{commitDate(commitBadge.committedAt)}</span>
           </div>

@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import ChevronDown from '~icons/lucide/chevron-down';
   import ChevronRight from '~icons/lucide/chevron-right';
   import GitBranch from '~icons/lucide/git-branch';
   import { SvelteSet } from 'svelte/reactivity';
   import type { TreeEntry } from '@depo/api-client';
   import LanguageIcon from '@/LanguageIcon.svelte';
+  import { appHref, type AppHref } from '@/navigation';
   import {
     ancestorsForPath,
     createTree,
@@ -16,7 +18,7 @@
 
   const defaultHrefForPath = (path: string) => {
     const query = new URLSearchParams({ path });
-    return `?${query.toString()}`;
+    return appHref(`/?${query.toString()}`);
   };
 
   const {
@@ -28,7 +30,7 @@
     nodes?: TreeEntry[];
     selectedPath?: string;
     changedPaths?: string[];
-    hrefForPath?: (path: string) => string;
+    hrefForPath?: (path: string) => AppHref;
   } = $props();
 
   const paths = $derived(pathsFromEntries(nodes));
@@ -110,7 +112,7 @@
 {/snippet}
 
 <div
-  class="h-full min-h-0 w-full overflow-y-auto py-3 px-2 text-fg-secondary [scrollbar-gutter:stable] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar-thumb]:bg-surface-hover"
+  class="h-full min-h-0 w-full overflow-y-auto px-2 py-2 text-fg-secondary [scrollbar-gutter:stable] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-transparent [&::-webkit-scrollbar]:w-2 hover:[&::-webkit-scrollbar-thumb]:bg-surface-hover"
 >
   <div class="space-y-0.5">
     {#each visibleRows as row (row.node.path)}
@@ -135,7 +137,7 @@
           class={rowClass(selected)}
           style={`padding-left: ${10 + row.depth * 18}px`}
           aria-current={selected ? 'page' : undefined}
-          href={hrefForPath(row.node.path)}
+          href={resolve(hrefForPath(row.node.path))}
         >
           {@render rowContent(row, selected, folder, open, changed)}
         </a>

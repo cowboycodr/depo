@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
   import GitCommit from '~icons/lucide/git-commit';
   import type { FileDiff as ApiFileDiff, TreeEntry } from '@depo/api-client';
@@ -7,6 +8,7 @@
   import FileHeader from '@/FileHeader.svelte';
   import NavBar from '@/NavBar.svelte';
   import RepositoryTree from '@/RepositoryTree.svelte';
+  import { appHref, type AppHref } from '@/navigation';
   import * as Sidebar from '@/ui/Sidebar';
   import type { PageData } from './$types';
 
@@ -31,6 +33,7 @@
     })
   );
   const changedFilePaths = $derived(files.map((f) => displayPath(f)));
+  const changedFileCountLabel = $derived(files.length === 1 ? '1 file' : `${files.length} files`);
   const selectedFile = $derived(selectFile(files, data.file));
   const selectedPath = $derived(selectedFile ? displayPath(selectedFile) : null);
   const canRenderSelected = $derived(selectedFile ? canRenderFile(selectedFile) : false);
@@ -66,13 +69,17 @@
     return file.newPath ?? file.oldPath ?? file.path;
   }
 
-  function hrefForFile(file: ApiFileDiff): string {
+  function hrefForFile(file: ApiFileDiff): AppHref {
     const query = new URLSearchParams({ file: displayPath(file) });
-    return `?${query.toString()}`;
+    return appHref(`/${data.owner}/${data.repo}/commits/${data.sha}?${query.toString()}`);
   }
 
-  function hrefForPath(path: string): string {
-    return `?${new URLSearchParams({ file: path }).toString()}`;
+  function hrefForPath(path: string): AppHref {
+    return appHref(
+      `/${data.owner}/${data.repo}/commits/${data.sha}?${new URLSearchParams({
+        file: path
+      }).toString()}`
+    );
   }
 
   function canRenderFile(file: ApiFileDiff): boolean {
@@ -111,11 +118,11 @@
       const destination = next[idx] ?? next[idx - 1];
       if (destination) {
         const destFile = files.find((f) => displayPath(f) === destination);
-        if (destFile) goto(hrefForFile(destFile));
+        if (destFile) goto(resolve(hrefForFile(destFile)));
       } else {
         const fallback = files.find((f) => displayPath(f) !== path);
         if (fallback) {
-          goto(hrefForFile(fallback));
+          goto(resolve(hrefForFile(fallback)));
         } else {
           tabs = [path];
         }
@@ -147,6 +154,16 @@
   <Sidebar.Root bind:open={sidebarOpen}>
     <div class="flex h-[calc(100vh-42px)] overflow-hidden bg-canvas">
       <Sidebar.Panel>
+        {#snippet controls()}
+          <div class="flex min-w-0 flex-1 items-center justify-between gap-2 pl-1.5">
+            <div class="flex min-w-0 items-baseline gap-2">
+              <span class="font-mono text-ui-md font-medium text-fg-secondary">Changes</span>
+              <span class="font-mono text-ui-xs text-fg-ref">{changedFileCountLabel}</span>
+            </div>
+            <Sidebar.CollapseButton />
+          </div>
+        {/snippet}
+
         <div class="flex h-full flex-col overflow-hidden">
           {#if data.commit}
             <div class="border-b border-line px-3 py-3">
@@ -195,7 +212,12 @@
             mode="diff"
             tabs={tabs.map((path) => {
               const file = files.find((f) => displayPath(f) === path);
-              return { path, href: file ? hrefForFile(file) : '#' };
+              return {
+                path,
+                href: file
+                  ? hrefForFile(file)
+                  : appHref(`/${data.owner}/${data.repo}/commits/${data.sha}`)
+              };
             })}
             activePath={selectedPath}
             onCloseTab={closeTab}

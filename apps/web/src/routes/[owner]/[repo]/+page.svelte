@@ -1,11 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { untrack } from 'svelte';
   import type { PageData } from './$types';
   import FileHeader from '@/FileHeader.svelte';
   import FileViewer from '@/FileViewer.svelte';
   import NavBar from '@/NavBar.svelte';
   import RepositoryTree from '@/RepositoryTree.svelte';
+  import { appHref, type AppHref } from '@/navigation';
   import * as Sidebar from '@/ui/Sidebar';
 
   const { data }: { data: PageData } = $props();
@@ -18,12 +20,16 @@
   const activePath = $derived(activeFile?.path ?? data.path ?? null);
   const content = $derived(activeFile?.content ?? '');
   const lineCount = $derived(countLines(content));
+  const fileCount = $derived(
+    data.view?.tree.nodes.filter((node) => node.kind === 'file').length ?? 0
+  );
+  const fileCountLabel = $derived(fileCount === 1 ? '1 file' : `${fileCount} files`);
   const commitBadge = $derived(
     activeFile?.lastCommit
       ? {
           sha: activeFile.lastCommit.sha,
           title: activeFile.lastCommit.title,
-          href: `/${data.owner}/${data.repo}/commits/${activeFile.lastCommit.sha}`,
+          href: appHref(`/${data.owner}/${data.repo}/commits/${activeFile.lastCommit.sha}`),
           author: activeFile.lastCommit.author,
           committedAt: activeFile.lastCommit.committedAt,
           additions: activeFile.lastCommit.additions,
@@ -33,11 +39,11 @@
       : undefined
   );
 
-  const hrefForPath = (path: string) => {
+  const hrefForPath = (path: string): AppHref => {
     const query = new URLSearchParams();
     if (data.ref) query.set('ref', data.ref);
     query.set('path', path);
-    return `?${query.toString()}`;
+    return appHref(`/${data.owner}/${data.repo}?${query.toString()}`);
   };
 
   $effect(() => {
@@ -58,12 +64,12 @@
     if (activePath === path) {
       const destination = next[idx] ?? next[idx - 1];
       if (destination) {
-        goto(hrefForPath(destination));
+        goto(resolve(hrefForPath(destination)));
       } else {
         const query = new URLSearchParams();
         if (data.ref) query.set('ref', data.ref);
         query.set('nofile', '1');
-        goto(`/${data.owner}/${data.repo}?${query.toString()}`);
+        goto(resolve(appHref(`/${data.owner}/${data.repo}?${query.toString()}`)));
       }
     }
   }
@@ -99,6 +105,16 @@
   <Sidebar.Root bind:open={sidebarOpen}>
     <div class="flex h-[calc(100vh-42px)] overflow-hidden bg-canvas">
       <Sidebar.Panel>
+        {#snippet controls()}
+          <div class="flex min-w-0 flex-1 items-center justify-between gap-2 pl-1.5">
+            <div class="flex min-w-0 items-baseline gap-2">
+              <span class="font-mono text-ui-md font-medium text-fg-secondary">Files</span>
+              <span class="font-mono text-ui-xs text-fg-ref">{fileCountLabel}</span>
+            </div>
+            <Sidebar.CollapseButton />
+          </div>
+        {/snippet}
+
         <RepositoryTree
           nodes={data.view?.tree.nodes ?? []}
           selectedPath={activePath ?? undefined}
@@ -125,7 +141,9 @@
           />
           <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
             {#if data.error}
-              <div class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary"
+              >
                 {data.error.message}
               </div>
             {:else if activeFile?.kind === 'text' && activeFile.content !== null}
@@ -133,11 +151,15 @@
                 <FileViewer content={activeFile.content} />
               {/key}
             {:else if activeFile}
-              <div class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary"
+              >
                 {activeFile.path} cannot be previewed inline.
               </div>
             {:else}
-              <div class="flex h-full items-center justify-center bg-surface-muted text-ui text-fg-subtle">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted text-ui text-fg-subtle"
+              >
                 No file selected
               </div>
             {/if}

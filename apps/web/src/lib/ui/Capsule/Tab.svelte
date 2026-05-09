@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
+  import { resolve } from '$app/paths';
 
+  import type { AppHref } from '@/navigation';
   import { cn } from '@/utils';
 
   const {
@@ -14,7 +16,7 @@
     active?: boolean;
     disabled?: boolean;
     count?: number;
-    href?: string;
+    href?: AppHref;
     class?: string;
     children: Snippet;
   } = $props();
@@ -28,7 +30,7 @@
 </script>
 
 {#if href !== undefined}
-  <a {href} class={cls} data-active={active} data-disabled={disabled}>
+  <a href={resolve(href)} class={cls} data-active={active} data-disabled={disabled}>
     {@render children()}
     {#if count !== undefined}
       <span class="ml-1.5 rounded-badge bg-surface-chip px-1.25 font-mono text-badge leading-badge">

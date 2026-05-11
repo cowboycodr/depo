@@ -9,7 +9,7 @@
     refName = 'main',
     commitSha,
     page = 'code',
-    commitCount
+    commitCount: _commitCount
   }: {
     owner: string;
     repo: string;

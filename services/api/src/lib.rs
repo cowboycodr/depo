@@ -37,10 +37,7 @@ pub fn router(state: AppState) -> Router {
             "/api/v1/repos",
             post(api::handlers::create_repo).get(api::handlers::list_repos),
         )
-        .route(
-            "/api/v1/repos/{owner}/{repo}",
-            get(api::handlers::get_repo),
-        )
+        .route("/api/v1/repos/{owner}/{repo}", get(api::handlers::get_repo))
         .route(
             "/api/v1/repos/{owner}/{repo}/commits",
             post(api::handlers::create_commit).get(api::handlers::list_commits),

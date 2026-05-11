@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use super::{GitSha, types::CommitSummary, types::CommitAuthor};
 use super::repository::RepositoryError;
+use super::{GitSha, types::CommitAuthor, types::CommitSummary};
 
 pub(crate) fn path_to_arg(path: &Path) -> Result<String, RepositoryError> {
     path.to_str()

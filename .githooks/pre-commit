@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+echo "=== pre-commit hook ==="
+
+STAGED_RS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.rs$' || true)
+STAGED_WEB=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^apps/web/' || true)
+
+if [ -n "$STAGED_RS" ]; then
+  echo "→ Checking Rust formatting..."
+  cargo fmt -- --check
+
+  echo "→ Running Clippy..."
+  cargo clippy --workspace -- -D warnings
+fi
+
+if [ -n "$STAGED_WEB" ]; then
+  echo "→ Checking web lint..."
+  pnpm --filter @depo/web lint
+fi
+
+echo "=== pre-commit hook passed ==="

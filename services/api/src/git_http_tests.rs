@@ -30,8 +30,7 @@ impl Drop for TestServer {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn clone_fetch_and_push_work_over_authenticated_smart_http() {
     let server = spawn_server().await;
-    let repo =
-        create_repo_with_commit(&server, "Initial commit", "README.md", "# Depo\n").await;
+    let repo = create_repo_with_commit(&server, "Initial commit", "README.md", "# Depo\n").await;
     let work = tempfile::tempdir().unwrap();
     let clone_path = work.path().join("clone");
     let remote = format!("{}/kian/depo.git", authed_base_url(&server));

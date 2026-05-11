@@ -8,9 +8,7 @@ use super::{
     StorageRoot, StorageRootError, ValidatedRef, ZERO_SHA,
 };
 use super::{
-    commit,
-    diff,
-    tree,
+    commit, diff, tree,
     types::{
         BlobContent, BlobKind, BranchHead, CommitAuthor, CommitChange, CommitDetail, CommitDiff,
         CommitMetadata, CommitRefUpdate, CommitRequest, CommitResult, CommitSummary,
@@ -401,7 +399,11 @@ impl BareRepository {
 
         let description = if fields.len() > 5 {
             let body = diff::utf8_field(fields[5])?.trim();
-            if body.is_empty() { None } else { Some(body.to_owned()) }
+            if body.is_empty() {
+                None
+            } else {
+                Some(body.to_owned())
+            }
         } else {
             None
         };
@@ -760,7 +762,10 @@ impl BareRepository {
     }
 
     fn git_prefix_args(&self) -> Result<Vec<String>, RepositoryError> {
-        Ok(vec!["--git-dir".to_owned(), commit::path_to_arg(&self.path)?])
+        Ok(vec![
+            "--git-dir".to_owned(),
+            commit::path_to_arg(&self.path)?,
+        ])
     }
 }
 

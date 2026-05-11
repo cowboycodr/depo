@@ -1,14 +1,11 @@
 use super::{
-    GitSha, RepoFilePath,
-    types::{
-        DiffFileStatus, DiffLineStats, RawDiffEntry,
-    },
-    ZERO_SHA,
+    GitSha, RepoFilePath, ZERO_SHA,
+    types::{DiffFileStatus, DiffLineStats, RawDiffEntry},
 };
 
 use super::repository::RepositoryError;
 
-pub(crate) fn utf8_field<'a>(value: &'a [u8]) -> Result<&'a str, RepositoryError> {
+pub(crate) fn utf8_field(value: &[u8]) -> Result<&str, RepositoryError> {
     std::str::from_utf8(value).map_err(|error| {
         RepositoryError::InvalidGitOutput(format!("git output was not valid UTF-8: {error}"))
     })
@@ -44,7 +41,10 @@ pub(crate) fn parse_diff_status(value: &str) -> DiffFileStatus {
     }
 }
 
-pub(crate) fn mode_for_content(mode: String, kind: super::types::DiffContentKind) -> Option<String> {
+pub(crate) fn mode_for_content(
+    mode: String,
+    kind: super::types::DiffContentKind,
+) -> Option<String> {
     match kind {
         super::types::DiffContentKind::Missing => None,
         _ => Some(mode),

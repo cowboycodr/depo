@@ -1,4 +1,3 @@
-import { DepoApiError } from '@depo/api-client';
 import { createDepoClient } from '@/server/depo-client';
 import { extractApiError } from '@/server/load-utils';
 import type { PageServerLoad } from './$types';

@@ -1,6 +1,6 @@
 use axum::{
     http::StatusCode,
-    response::{IntoResponse, Response, Json},
+    response::{IntoResponse, Json, Response},
 };
 use depo_core::git::{IdError, RepositoryError};
 use serde::Serialize;

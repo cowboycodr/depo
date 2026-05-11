@@ -219,7 +219,6 @@ fn parse_cgi_response(output: Vec<u8>) -> Result<Response<Body>, GitHttpError> {
         })?;
         if name.eq_ignore_ascii_case("Status") {
             let code = value
-                .trim()
                 .split_whitespace()
                 .next()
                 .and_then(|value| value.parse::<u16>().ok())
@@ -382,4 +381,3 @@ impl From<sqlx::Error> for GitHttpError {
         Self::internal(format!("Database operation failed: {error}"))
     }
 }
-

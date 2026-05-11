@@ -1,5 +1,5 @@
-use super::{GitSha, RepoFilePath, types::TreeEntry, types::TreeEntryKind};
 use super::repository::RepositoryError;
+use super::{GitSha, RepoFilePath, types::TreeEntry, types::TreeEntryKind};
 
 pub(crate) fn treeish_for_path(commit_sha: &GitSha, path: &RepoFilePath) -> String {
     if path.is_root() {

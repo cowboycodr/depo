@@ -178,7 +178,9 @@
           {commitBadge.sha.slice(0, 7)}
         </a>
 
-        <Popover.Content class="w-72 overflow-hidden rounded-md border border-line bg-surface shadow-md whitespace-normal">
+        <Popover.Content
+          class="w-72 overflow-hidden rounded-md border border-line bg-surface shadow-md whitespace-normal"
+        >
           <div class="flex items-center justify-between px-3 py-1.5">
             <span class="font-mono text-ui text-fg-ref">{commitBadge.sha.slice(0, 12)}</span>
             {#if commitBadge.additions > 0 || commitBadge.removals > 0}
@@ -194,13 +196,19 @@
           </div>
 
           <div class="border-t border-line px-3 py-2">
-            <p class="break-words font-sans text-ui-md font-medium leading-snug text-fg">{commitBadge.title}</p>
+            <p class="break-words font-sans text-ui-md font-medium leading-snug text-fg">
+              {commitBadge.title}
+            </p>
             {#if commitBadge.description}
-              <p class="mt-1.5 whitespace-pre-wrap font-sans text-ui text-fg-secondary">{commitBadge.description}</p>
+              <p class="mt-1.5 whitespace-pre-wrap font-sans text-ui text-fg-secondary">
+                {commitBadge.description}
+              </p>
             {/if}
           </div>
 
-          <div class="flex items-center justify-between border-t border-line px-3 py-1.5 text-ui text-fg-muted">
+          <div
+            class="flex items-center justify-between border-t border-line px-3 py-1.5 text-ui text-fg-muted"
+          >
             <span class="font-sans">{commitBadge.author.name}</span>
             <span class="font-mono">{commitDate(commitBadge.committedAt)}</span>
           </div>

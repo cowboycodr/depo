@@ -183,7 +183,7 @@
             })}
             activePath={selectedPath}
             onCloseTab={closeTab}
-            onReorderTabs={onReorderTabs}
+            {onReorderTabs}
             lines={selectedLines}
             size={selectedSize}
             additions={selectedFile?.additions ?? 0}

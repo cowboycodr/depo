@@ -111,14 +111,16 @@
             tabs={tabs.map((p) => ({ path: p, href: hrefForPath(p) }))}
             {activePath}
             onCloseTab={closeTab}
-            onReorderTabs={onReorderTabs}
+            {onReorderTabs}
             lines={lineCount}
             size={activeFile?.size ?? 0}
             {commitBadge}
           />
           <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
             {#if data.error}
-              <div class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary"
+              >
                 {data.error.message}
               </div>
             {:else if activeFile?.kind === 'text' && activeFile.content !== null}
@@ -126,11 +128,15 @@
                 <FileViewer content={activeFile.content} />
               {/key}
             {:else if activeFile}
-              <div class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted p-8 text-ui text-fg-secondary"
+              >
                 {activeFile.path} cannot be previewed inline.
               </div>
             {:else}
-              <div class="flex h-full items-center justify-center bg-surface-muted text-ui text-fg-subtle">
+              <div
+                class="flex h-full items-center justify-center bg-surface-muted text-ui text-fg-subtle"
+              >
                 No file selected
               </div>
             {/if}

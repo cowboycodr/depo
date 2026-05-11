@@ -36,7 +36,9 @@
   data-active={active}
 >
   <span class="relative flex h-3.75 w-3.75 shrink-0 items-center justify-center">
-    <span class="pointer-events-none flex items-center justify-center transition-opacity duration-100 group-hover:opacity-0">
+    <span
+      class="pointer-events-none flex items-center justify-center transition-opacity duration-100 group-hover:opacity-0"
+    >
       <LanguageIcon name={baseName} />
     </span>
     <button

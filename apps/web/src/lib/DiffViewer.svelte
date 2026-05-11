@@ -32,7 +32,11 @@
   };
 
   const fileLanguage = $derived(normalizeLanguage(fileName, language));
-  const oldFile = $derived<FileContents>({ name: fileName, lang: fileLanguage, contents: oldContent });
+  const oldFile = $derived<FileContents>({
+    name: fileName,
+    lang: fileLanguage,
+    contents: oldContent
+  });
   const newFile = $derived<FileContents>({
     name: fileName,
     lang: fileLanguage,
@@ -60,19 +64,21 @@
   onMount(() => {
     let cancelled = false;
 
-    void import('@pierre/diffs').then(({ FileDiff, registerCustomTheme }) => {
-      if (cancelled) return;
+    void import('@pierre/diffs')
+      .then(({ FileDiff, registerCustomTheme }) => {
+        if (cancelled) return;
 
-      registerCustomTheme('depo-dark', async () => darkTheme as ThemeRegistration);
-      registerCustomTheme('depo-light', async () => lightTheme as ThemeRegistration);
+        registerCustomTheme('depo-dark', async () => darkTheme as ThemeRegistration);
+        registerCustomTheme('depo-light', async () => lightTheme as ThemeRegistration);
 
-      diff = new FileDiff();
-      mounted = true;
-    }).catch((err) => {
-      if (!cancelled) {
-        console.error('Failed to load diff renderer:', err);
-      }
-    });
+        diff = new FileDiff();
+        mounted = true;
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to load diff renderer:', err);
+        }
+      });
 
     return () => {
       cancelled = true;

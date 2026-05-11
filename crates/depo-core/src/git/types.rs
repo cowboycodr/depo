@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{GitSha, RepoFilePath, BranchName};
+use super::{BranchName, GitSha, RepoFilePath};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitAuthor {

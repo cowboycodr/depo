@@ -1,12 +1,5 @@
 <script lang="ts">
-  import type { CommitSummary } from '@depo/api-client';
-  import {
-    avatarPalette,
-    formatFullDate,
-    groupByDate,
-    initials,
-    timeAgo
-  } from '@/commits-utils';
+  import { avatarPalette, formatFullDate, groupByDate, initials, timeAgo } from '@/commits-utils';
   import NavBar from '@/NavBar.svelte';
   import type { PageData } from './$types';
 
@@ -57,15 +50,11 @@
           <!-- Commits list -->
           <div class="overflow-y-auto">
             {#if data.error}
-              <div
-                class="flex h-full items-center justify-center p-8 text-ui text-fg-secondary"
-              >
+              <div class="flex h-full items-center justify-center p-8 text-ui text-fg-secondary">
                 {data.error.message}
               </div>
             {:else if data.commits.length === 0}
-              <div
-                class="flex h-full items-center justify-center p-8 text-ui text-fg-subtle"
-              >
+              <div class="flex h-full items-center justify-center p-8 text-ui text-fg-subtle">
                 No commits yet
               </div>
             {:else}

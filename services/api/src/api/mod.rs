@@ -90,7 +90,12 @@ mod tests {
             .unwrap();
         let status = response.status();
         let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
-        assert_eq!(status, axum::http::StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        assert_eq!(
+            status,
+            axum::http::StatusCode::OK,
+            "{}",
+            String::from_utf8_lossy(&body)
+        );
         let json: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["activeFile"]["content"], "# Depo\n");
         assert_eq!(json["tree"]["nodes"][0]["path"], "README.md");
@@ -192,7 +197,12 @@ mod tests {
             .unwrap();
         let status = response.status();
         let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
-        assert_eq!(status, axum::http::StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        assert_eq!(
+            status,
+            axum::http::StatusCode::OK,
+            "{}",
+            String::from_utf8_lossy(&body)
+        );
         let detail: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(detail["commit"]["title"], "Expand README");
         assert_eq!(detail["commit"]["parents"][0], first_sha);
@@ -219,7 +229,12 @@ mod tests {
             .unwrap();
         let status = response.status();
         let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
-        assert_eq!(status, axum::http::StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+        assert_eq!(
+            status,
+            axum::http::StatusCode::OK,
+            "{}",
+            String::from_utf8_lossy(&body)
+        );
         let diff: Value = serde_json::from_slice(&body).unwrap();
         let selected = diff["diff"]["files"]
             .as_array()

@@ -7,11 +7,7 @@
   import * as Popover from '@/ui/Popover';
   import * as Sidebar from '@/ui/Sidebar';
   import * as Toggle from '@/ui/Toggle';
-
-  const formatBytes = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  };
+  import { commitDate, formatBytes } from '@/utils';
 
   let {
     diffStyle = $bindable(),
@@ -49,16 +45,6 @@
   } = $props();
 
   const formattedSize = $derived(formatBytes(size));
-
-  function commitDate(iso: string): string {
-    return new Date(iso).toLocaleString('en', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  }
 
   let dragIndex = $state<number | null>(null);
   let dropIndex = $state<number | null>(null);

@@ -37,7 +37,8 @@
     return extensionFor(fileName);
   };
 
-  const icon = $derived(fileIcons[iconKeyFor(name) as keyof typeof fileIcons]);
+  const iconKey = $derived(iconKeyFor(name));
+  const icon = $derived(iconKey && (iconKey in fileIcons) ? fileIcons[iconKey as keyof typeof fileIcons] : undefined);
   const fallback = $derived((label ?? extensionFor(name) ?? 'file').slice(0, 4));
 </script>
 

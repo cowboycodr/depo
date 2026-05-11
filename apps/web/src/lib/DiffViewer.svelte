@@ -68,6 +68,10 @@
 
       diff = new FileDiff();
       mounted = true;
+    }).catch((err) => {
+      if (!cancelled) {
+        console.error('Failed to load diff renderer:', err);
+      }
     });
 
     return () => {

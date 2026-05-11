@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import type { Snippet } from 'svelte';
   import { setPopoverContext } from './context';
 
@@ -27,6 +28,13 @@
       hideTimer = null;
     }, 150);
   }
+
+  onDestroy(() => {
+    if (hideTimer !== null) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  });
 
   setPopoverContext({ visible: () => visible, show, scheduleHide });
 </script>

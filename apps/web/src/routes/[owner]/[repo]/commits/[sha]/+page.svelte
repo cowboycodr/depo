@@ -8,6 +8,7 @@
   import NavBar from '@/NavBar.svelte';
   import RepositoryTree from '@/RepositoryTree.svelte';
   import * as Sidebar from '@/ui/Sidebar';
+  import { countLines, commitDate, reorderTabs } from '@/utils';
   import type { PageData } from './$types';
 
   const { data }: { data: PageData } = $props();
@@ -85,22 +86,8 @@
     return value ?? '';
   }
 
-  function countLines(value: string): number {
-    if (value.length === 0) return 0;
-    return value.endsWith('\n') ? value.slice(0, -1).split('\n').length : value.split('\n').length;
-  }
-
   function shortSha(value: string): string {
     return value.slice(0, 7);
-  }
-
-  function commitDate(value: string): string {
-    return new Date(value).toLocaleString('en', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
-    });
   }
 
   function closeTab(path: string) {
@@ -123,11 +110,8 @@
     }
   }
 
-  function reorderTabs(fromIndex: number, toIndex: number) {
-    const next = [...tabs];
-    const [item] = next.splice(fromIndex, 1) as [string];
-    next.splice(toIndex, 0, item);
-    tabs = next;
+  function onReorderTabs(fromIndex: number, toIndex: number) {
+    tabs = reorderTabs(tabs, fromIndex, toIndex);
   }
 </script>
 
@@ -199,7 +183,7 @@
             })}
             activePath={selectedPath}
             onCloseTab={closeTab}
-            onReorderTabs={reorderTabs}
+            onReorderTabs={onReorderTabs}
             lines={selectedLines}
             size={selectedSize}
             additions={selectedFile?.additions ?? 0}

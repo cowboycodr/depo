@@ -7,6 +7,7 @@
   import NavBar from '@/NavBar.svelte';
   import RepositoryTree from '@/RepositoryTree.svelte';
   import * as Sidebar from '@/ui/Sidebar';
+  import { countLines, reorderTabs } from '@/utils';
 
   const { data }: { data: PageData } = $props();
 
@@ -68,16 +69,8 @@
     }
   }
 
-  function reorderTabs(fromIndex: number, toIndex: number) {
-    const next = [...tabs];
-    const [item] = next.splice(fromIndex, 1) as [string];
-    next.splice(toIndex, 0, item);
-    tabs = next;
-  }
-
-  function countLines(value: string) {
-    if (value.length === 0) return 0;
-    return value.endsWith('\n') ? value.slice(0, -1).split('\n').length : value.split('\n').length;
+  function onReorderTabs(fromIndex: number, toIndex: number) {
+    tabs = reorderTabs(tabs, fromIndex, toIndex);
   }
 </script>
 
@@ -118,7 +111,7 @@
             tabs={tabs.map((p) => ({ path: p, href: hrefForPath(p) }))}
             {activePath}
             onCloseTab={closeTab}
-            onReorderTabs={reorderTabs}
+            onReorderTabs={onReorderTabs}
             lines={lineCount}
             size={activeFile?.size ?? 0}
             {commitBadge}

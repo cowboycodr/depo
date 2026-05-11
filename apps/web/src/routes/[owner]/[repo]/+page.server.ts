@@ -1,5 +1,6 @@
 import { DepoApiError } from '@depo/api-client';
 import { createDepoClient } from '@/server/depo-client';
+import { extractApiError } from '@/server/load-utils';
 import type { PageServerLoad } from './$types';
 
 const README_NAMES = new Set(['README.md', 'readme.md', 'README', 'README.txt', 'readme.txt']);
@@ -43,20 +44,17 @@ export const load: PageServerLoad = async ({ fetch, params, url }) => {
       error: null
     };
   } catch (error) {
-    if (error instanceof DepoApiError) {
+    const apiError = extractApiError(error);
+    if (apiError) {
       return {
         owner: params.owner,
         repo: params.repo,
         ref: ref ?? null,
         path: path ?? null,
         view: null,
-        error: {
-          code: error.code,
-          message: error.message
-        }
+        error: apiError
       };
     }
-
     throw error;
   }
 };

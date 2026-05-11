@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import { DepoApiError } from '@depo/api-client';
 import { createDepoClient } from '@/server/depo-client';
+import { extractApiError } from '@/server/load-utils';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ fetch }) => {
@@ -12,11 +13,9 @@ export const load: PageServerLoad = async ({ fetch }) => {
       error: null
     };
   } catch (error) {
-    if (error instanceof DepoApiError) {
-      return {
-        repos: [],
-        error: { code: error.code, message: error.message }
-      };
+    const apiError = extractApiError(error);
+    if (apiError) {
+      return { repos: [], error: apiError };
     }
     throw error;
   }
@@ -25,8 +24,8 @@ export const load: PageServerLoad = async ({ fetch }) => {
 export const actions = {
   default: async ({ request, fetch }) => {
     const data = await request.formData();
-    const owner = (data.get('owner') as string ?? '').trim();
-    const name = (data.get('name') as string ?? '').trim();
+    const owner = data.get('owner')?.toString().trim() ?? '';
+    const name = data.get('name')?.toString().trim() ?? '';
 
     if (!owner || !name) {
       return fail(400, {

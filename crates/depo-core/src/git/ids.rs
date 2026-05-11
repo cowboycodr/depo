@@ -3,6 +3,10 @@ use std::fmt;
 
 pub const ZERO_SHA: &str = "0000000000000000000000000000000000000000";
 
+pub const FILE_MODE_REGULAR: &str = "100644";
+pub const FILE_MODE_EXECUTABLE: &str = "100755";
+pub const FILE_MODE_SUBMODULE: &str = "160000";
+
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum IdError {
     #[error("{field} is required")]

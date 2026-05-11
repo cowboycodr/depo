@@ -4,6 +4,9 @@ pub mod config;
 pub mod db;
 pub mod git_http;
 
+#[cfg(test)]
+mod git_http_tests;
+
 use axum::{
     Router,
     routing::{get, post},
@@ -29,21 +32,39 @@ pub struct AppState {
 
 pub fn router(state: AppState) -> Router {
     Router::new()
-        .route("/health", get(api::health))
-        .route("/api/v1/repos", post(api::create_repo).get(api::list_repos))
-        .route("/api/v1/repos/{owner}/{repo}", get(api::get_repo))
+        .route("/health", get(api::handlers::health))
+        .route(
+            "/api/v1/repos",
+            post(api::handlers::create_repo).get(api::handlers::list_repos),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}",
+            get(api::handlers::get_repo),
+        )
         .route(
             "/api/v1/repos/{owner}/{repo}/commits",
-            post(api::create_commit).get(api::list_commits),
+            post(api::handlers::create_commit).get(api::handlers::list_commits),
         )
         .route(
             "/api/v1/repos/{owner}/{repo}/commits/{sha}",
-            get(api::get_commit),
+            get(api::handlers::get_commit),
         )
-        .route("/api/v1/repos/{owner}/{repo}/diff", get(api::get_diff))
-        .route("/api/v1/repos/{owner}/{repo}/tree", get(api::get_tree))
-        .route("/api/v1/repos/{owner}/{repo}/blob", get(api::get_blob))
-        .route("/api/v1/repos/{owner}/{repo}/view", get(api::get_view))
+        .route(
+            "/api/v1/repos/{owner}/{repo}/diff",
+            get(api::handlers::get_diff),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/tree",
+            get(api::handlers::get_tree),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/blob",
+            get(api::handlers::get_blob),
+        )
+        .route(
+            "/api/v1/repos/{owner}/{repo}/view",
+            get(api::handlers::get_view),
+        )
         .fallback(git_http::handle)
         .with_state(state)
 }

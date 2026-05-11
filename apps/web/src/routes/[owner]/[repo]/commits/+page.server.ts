@@ -1,5 +1,6 @@
 import { DepoApiError } from '@depo/api-client';
 import { createDepoClient } from '@/server/depo-client';
+import { extractApiError } from '@/server/load-utils';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ fetch, params, url }) => {
@@ -21,20 +22,17 @@ export const load: PageServerLoad = async ({ fetch, params, url }) => {
       error: null
     };
   } catch (error) {
-    if (error instanceof DepoApiError) {
+    const apiError = extractApiError(error);
+    if (apiError) {
       return {
         owner: params.owner,
         repo: params.repo,
         ref: ref ?? null,
         view: null,
         commits: [],
-        error: {
-          code: error.code,
-          message: error.message
-        }
+        error: apiError
       };
     }
-
     throw error;
   }
 };

@@ -30,8 +30,8 @@ pub(crate) fn parse_commit_with_stats(record: &str) -> Result<CommitSummary, Rep
         ));
     }
 
-    let fields: Vec<&str> = header.splitn(5, '\t').collect();
-    if fields.len() != 5 {
+    let fields: Vec<&str> = header.splitn(6, '\t').collect();
+    if fields.len() != 6 {
         return Err(RepositoryError::InvalidGitOutput(format!(
             "invalid commit fields in {:?}",
             header
@@ -49,16 +49,22 @@ pub(crate) fn parse_commit_with_stats(record: &str) -> Result<CommitSummary, Rep
         }
     }
 
+    let parents = fields[1]
+        .split_whitespace()
+        .map(GitSha::parse)
+        .collect::<Result<Vec<_>, _>>()?;
+
     Ok(CommitSummary {
         sha: GitSha::parse(fields[0])?,
-        title: fields[4].trim_end().to_owned(),
+        title: fields[5].trim_end().to_owned(),
         author: CommitAuthor {
-            name: fields[1].to_owned(),
-            email: fields[2].to_owned(),
+            name: fields[2].to_owned(),
+            email: fields[3].to_owned(),
         },
-        committed_at: fields[3].to_owned(),
+        committed_at: fields[4].to_owned(),
         additions,
         removals,
+        parents,
         description: None,
     })
 }

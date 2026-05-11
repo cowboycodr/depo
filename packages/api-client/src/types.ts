@@ -125,6 +125,7 @@ export type CommitSummary = {
   committedAt: string;
   additions: number;
   removals: number;
+  parents: string[];
   description?: string | null;
 };
 

@@ -349,7 +349,7 @@ impl BareRepository {
                 "log".to_owned(),
                 "-n".to_owned(),
                 limit_str,
-                "--format=%x00%H%x09%an%x09%ae%x09%cI%x09%s".to_owned(),
+                "--format=%x00%H%x09%P%x09%an%x09%ae%x09%cI%x09%s".to_owned(),
                 "--shortstat".to_owned(),
                 commit_sha.as_str().to_owned(),
             ],
@@ -379,7 +379,7 @@ impl BareRepository {
                 "log".to_owned(),
                 "-n".to_owned(),
                 "1".to_owned(),
-                "--format=%H%x00%an%x00%ae%x00%cI%x00%s%x00%b%x00".to_owned(),
+                "--format=%H%x00%an%x00%ae%x00%cI%x00%s%x00%P%x00%b%x00".to_owned(),
                 commit_sha.as_str().to_owned(),
                 "--".to_owned(),
                 path.as_str().to_owned(),
@@ -388,7 +388,7 @@ impl BareRepository {
         )?;
 
         let fields = output.stdout.split(|b| *b == 0).collect::<Vec<_>>();
-        if fields.len() < 5 || fields[0].is_empty() {
+        if fields.len() < 6 || fields[0].is_empty() {
             return Err(RepositoryError::PathNotFound(path.as_str().to_owned()));
         }
 
@@ -397,8 +397,13 @@ impl BareRepository {
             return Err(RepositoryError::PathNotFound(path.as_str().to_owned()));
         }
 
-        let description = if fields.len() > 5 {
-            let body = diff::utf8_field(fields[5])?.trim();
+        let parents = diff::utf8_field(fields[5])?
+            .split_whitespace()
+            .map(GitSha::parse)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let description = if fields.len() > 6 {
+            let body = diff::utf8_field(fields[6])?.trim();
             if body.is_empty() {
                 None
             } else {
@@ -418,6 +423,7 @@ impl BareRepository {
             committed_at: diff::utf8_field(fields[3])?.trim_end().to_owned(),
             additions: 0,
             removals: 0,
+            parents,
             description,
         })
     }

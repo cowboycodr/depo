@@ -320,6 +320,7 @@ pub struct CommitSummaryDto {
     pub committed_at: String,
     pub additions: u32,
     pub removals: u32,
+    pub parents: Vec<GitSha>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
@@ -333,6 +334,7 @@ impl From<CommitSummary> for CommitSummaryDto {
             committed_at: commit.committed_at,
             additions: commit.additions,
             removals: commit.removals,
+            parents: commit.parents,
             description: commit.description,
         }
     }

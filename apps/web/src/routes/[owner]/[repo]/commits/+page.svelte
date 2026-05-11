@@ -1,4 +1,5 @@
 <script lang="ts">
+  import GitMerge from '~icons/lucide/git-merge';
   import { avatarPalette, formatFullDate, groupByDate, initials, timeAgo } from '@/commits-utils';
   import NavBar from '@/NavBar.svelte';
   import type { PageData } from './$types';
@@ -71,18 +72,27 @@
 
                   <!-- Commits in group -->
                   {#each group.commits as commit (commit.sha)}
+                    {@const isMerge = commit.parents.length >= 2}
                     {@const palette = avatarPalette(commit.author.name)}
                     <a
                       href={hrefForCommit(commit.sha)}
                       class="group flex h-8 items-center gap-3 px-4 outline-none hover:bg-overlay-hover focus-visible:shadow-ring"
                     >
-                      <!-- Author avatar -->
-                      <div
-                        class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar text-2xs font-semibold"
-                        style="background-color: {palette.bg}; color: {palette.text};"
-                      >
-                        {initials(commit.author.name)}
-                      </div>
+                      <!-- Author avatar or merge icon -->
+                      {#if isMerge}
+                        <div
+                          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar bg-surface-chip"
+                        >
+                          <GitMerge class="text-fg-muted" width={12} height={12} stroke-width={2} />
+                        </div>
+                      {:else}
+                        <div
+                          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar text-2xs font-semibold"
+                          style="background-color: {palette.bg}; color: {palette.text};"
+                        >
+                          {initials(commit.author.name)}
+                        </div>
+                      {/if}
 
                       <!-- Commit title -->
                       <span class="min-w-0 flex-1 truncate text-ui-md text-fg">

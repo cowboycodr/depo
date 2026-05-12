@@ -33,7 +33,17 @@
     );
   }
 
-  const groups = $derived(groupByDate(data.commits));
+  const containedShas = $derived(
+    new Set(
+      data.commits
+        .filter((c) => c.parents.length >= 2)
+        .flatMap((c) => (c.containedCommits ?? []).map((cc) => cc.sha))
+    )
+  );
+
+  const visible = $derived(data.commits.filter((c) => !containedShas.has(c.sha)));
+
+  const groups = $derived(groupByDate(visible));
 </script>
 
 <svelte:head>
@@ -47,7 +57,7 @@
     {refName}
     {commitSha}
     page="commits"
-    commitCount={data.commits.length > 0 ? data.commits.length : undefined}
+    commitCount={visible.length > 0 ? visible.length : undefined}
   />
 
   <div class="overflow-hidden bg-canvas">
@@ -58,9 +68,9 @@
         >
           <!-- Header bar -->
           <div class="flex h-9.5 shrink-0 items-center justify-end bg-surface-muted px-4">
-            {#if data.commits.length > 0}
+            {#if visible.length > 0}
               <span class="font-mono text-ui text-fg-muted">
-                {data.commits.length} commit{data.commits.length !== 1 ? 's' : ''}
+                {visible.length} commit{visible.length !== 1 ? 's' : ''}
               </span>
             {/if}
           </div>
@@ -138,7 +148,7 @@
                     {#if isMerge}
                       {@const containedCount = commit.containedCommits?.length ?? 0}
                       {@const stats = mergeStats(commit.containedCommits ?? [])}
-                      {@const expanded = expandedMerges[commit.sha] ?? false}
+                      {@const expanded = expandedMerges[commit.sha] ?? true}
                       <div class="bg-overlay-hover">
                         <div
                           class="group flex h-8 items-center gap-3 px-4"

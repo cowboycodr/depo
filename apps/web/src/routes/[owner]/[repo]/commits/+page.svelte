@@ -10,6 +10,12 @@
   const refName = $derived(data.view?.ref.name ?? 'main');
   const commitSha = $derived(data.view?.ref.commitSha ?? null);
 
+  let expandedMerges: Record<string, boolean> = $state({});
+
+  function toggleMerge(sha: string) {
+    expandedMerges[sha] = !expandedMerges[sha];
+  }
+
   function hrefForCommit(sha: string): string {
     const query = new URLSearchParams();
     if (data.ref) query.set('ref', data.ref);
@@ -130,49 +136,73 @@
                     {@const isMerge = commit.parents.length >= 2}
 
                     {#if isMerge}
+                      {@const containedCount = commit.containedCommits?.length ?? 0}
                       {@const stats = mergeStats(commit.containedCommits ?? [])}
                       <div class="bg-overlay-hover">
-                        <a
-                          href={hrefForCommit(commit.sha)}
-                          class="block px-4 py-2 outline-none transition-colors hover:bg-overlay-hover focus-visible:shadow-ring"
+                        <div
+                          class="flex h-8 items-center gap-3 px-4"
+                          role="button"
+                          tabindex="0"
+                          onclick={() => toggleMerge(commit.sha)}
+                          onkeydown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') toggleMerge(commit.sha);
+                          }}
                         >
-                          <div class="flex items-start gap-2">
-                            <div
-                              class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar bg-surface-chip"
-                            >
-                              <GitMerge
-                                class="text-fg-muted"
-                                width={12}
-                                height={12}
-                                stroke-width={2}
-                              />
-                            </div>
-                            <div class="min-w-0 flex-1">
-                              <div class="text-ui-md font-medium text-fg">
-                                {commit.title}
-                              </div>
-                              <div class="mt-1 flex items-center gap-2 text-ui text-fg-muted">
-                                <span class="font-mono text-fg-ref">{commit.sha.slice(0, 7)}</span>
-                                <span class="text-fg-slash">·</span>
-                                <span>{commit.containedCommits?.length ?? 0} commits</span>
-                                {#if stats.additions > 0 || stats.removals > 0}
-                                  <span class="text-fg-slash">·</span>
-                                  {#if stats.additions > 0}
-                                    <span class="text-diff-add-strong">+{stats.additions}</span>
-                                  {/if}
-                                  {#if stats.removals > 0}
-                                    <span class="text-danger">-{stats.removals}</span>
-                                  {/if}
-                                {/if}
-                              </div>
-                            </div>
+                          <div
+                            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar bg-surface-chip"
+                          >
+                            <GitMerge
+                              class="text-fg-muted"
+                              width={12}
+                              height={12}
+                              stroke-width={2}
+                            />
                           </div>
-                        </a>
 
-                        <!-- Nested commits -->
-                        {#each commit.containedCommits ?? [] as contained (contained.sha)}
-                          {@render commitRow(contained)}
-                        {/each}
+                          <span class="min-w-0 flex-1 truncate text-ui-md text-fg">
+                            {commit.title}
+                          </span>
+
+                          {#if containedCount > 0}
+                            <span class="shrink-0 text-ui text-fg-muted">
+                              {containedCount} commit{containedCount !== 1 ? 's' : ''}
+                            </span>
+                          {/if}
+                          {#if stats.additions > 0 || stats.removals > 0}
+                            <span class="shrink-0 text-ui text-fg-muted">
+                              {#if stats.additions > 0}
+                                <span class="text-diff-add-strong">+{stats.additions}</span>
+                              {/if}
+                              {#if stats.removals > 0}
+                                <span class="text-danger">-{stats.removals}</span>
+                              {/if}
+                            </span>
+                          {/if}
+
+                          <span class="shrink-0 text-ui text-fg-muted">
+                            {commit.author.name}
+                          </span>
+                          <span
+                            class="w-16 shrink-0 text-right text-ui text-fg-subtle"
+                            title={formatFullDate(commit.committedAt)}
+                          >
+                            {timeAgo(commit.committedAt)}
+                          </span>
+
+                          <a
+                            href={hrefForCommit(commit.sha)}
+                            class="w-20 shrink-0 text-right font-mono text-ui text-fg-ref outline-none hover:text-fg-bright"
+                            onclick={(e) => e.stopPropagation()}
+                          >
+                            {commit.sha.slice(0, 7)}
+                          </a>
+                        </div>
+
+                        {#if expandedMerges[commit.sha]}
+                          {#each commit.containedCommits ?? [] as contained (contained.sha)}
+                            {@render commitRow(contained)}
+                          {/each}
+                        {/if}
                       </div>
                     {:else}
                       {@render commitRow(commit)}

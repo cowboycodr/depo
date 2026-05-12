@@ -93,6 +93,9 @@ pub struct CommitSummary {
     pub committed_at: String,
     pub additions: u32,
     pub removals: u32,
+    pub parents: Vec<GitSha>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub contained_commits: Vec<CommitSummary>,
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub description: Option<String>,
 }

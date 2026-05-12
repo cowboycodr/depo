@@ -43,6 +43,14 @@
 
   const visible = $derived(data.commits.filter((c) => !containedShas.has(c.sha)));
 
+  const afterMerge = $derived(
+    new Set(
+      visible
+        .filter((_, i, arr) => i > 0 && (arr[i - 1]?.parents.length ?? 0) >= 2)
+        .map((c) => c.sha)
+    )
+  );
+
   const groups = $derived(groupByDate(visible));
 </script>
 
@@ -149,7 +157,14 @@
                       {@const containedCount = commit.containedCommits?.length ?? 0}
                       {@const stats = mergeStats(commit.containedCommits ?? [])}
                       {@const expanded = expandedMerges[commit.sha] ?? true}
-                      <div class="bg-overlay-hover">
+                      <div
+                        class={[
+                          'bg-overlay-hover',
+                          afterMerge.has(commit.sha) && 'border-t border-line'
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                      >
                         <div
                           class="group flex h-8 items-center gap-3 px-4"
                           role="button"

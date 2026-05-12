@@ -77,13 +77,19 @@
                     <a
                       href={hrefForCommit(commit.sha)}
                       class="group flex h-8 items-center gap-3 px-4 outline-none hover:bg-overlay-hover focus-visible:shadow-ring"
+                      class:bg-overlay-hover={isMerge}
                     >
                       <!-- Author avatar or merge icon -->
                       {#if isMerge}
                         <div
-                          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar bg-surface-chip"
+                          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar bg-surface-accent"
                         >
-                          <GitMerge class="text-fg-muted" width={12} height={12} stroke-width={2} />
+                          <GitMerge
+                            class="text-accent-info"
+                            width={12}
+                            height={12}
+                            stroke-width={2}
+                          />
                         </div>
                       {:else}
                         <div
@@ -95,21 +101,33 @@
                       {/if}
 
                       <!-- Commit title -->
-                      <span class="min-w-0 flex-1 truncate text-ui-md text-fg">
+                      <span
+                        class="min-w-0 flex-1 truncate text-ui-md"
+                        class:text-fg={!isMerge}
+                        class:text-fg-secondary={isMerge}
+                      >
                         {commit.title}
                       </span>
 
                       <!-- Changes -->
-                      <span
-                        class="flex w-20 shrink-0 items-center justify-end gap-1 font-mono text-ui opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                      >
-                        {#if commit.additions > 0}
-                          <span class="text-diff-add-strong">+{commit.additions}</span>
-                        {/if}
-                        {#if commit.removals > 0}
-                          <span class="text-danger">-{commit.removals}</span>
-                        {/if}
-                      </span>
+                      {#if !isMerge}
+                        <span
+                          class="flex w-20 shrink-0 items-center justify-end gap-1 font-mono text-ui opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                        >
+                          {#if commit.additions > 0}
+                            <span class="text-diff-add-strong">+{commit.additions}</span>
+                          {/if}
+                          {#if commit.removals > 0}
+                            <span class="text-danger">-{commit.removals}</span>
+                          {/if}
+                        </span>
+                      {:else}
+                        <span
+                          class="flex w-20 shrink-0 items-center justify-end font-mono text-ui text-fg-muted"
+                        >
+                          merged
+                        </span>
+                      {/if}
 
                       <!-- Author + time -->
                       <span class="shrink-0 text-ui text-fg-muted">

@@ -37,7 +37,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.owner}/{data.repo} · Commits</title>
+  <title>commits:{data.owner}/{data.repo}</title>
 </svelte:head>
 
 <div class="grid h-full grid-rows-[42px_minmax(0,1fr)]">

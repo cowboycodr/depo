@@ -116,7 +116,7 @@
 </script>
 
 <svelte:head>
-  <title>{data.owner}/{data.repo}@{shortSha(data.sha)} · Commit</title>
+  <title>{data.owner}/{data.repo}@{shortSha(data.sha)}</title>
 </svelte:head>
 
 <div class="grid h-full grid-rows-[42px_minmax(0,1fr)]">

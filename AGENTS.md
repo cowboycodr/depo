@@ -178,6 +178,27 @@ Document:
 
 Do not let important decisions live only in chat history.
 
+### Page Title Convention
+
+Page titles use a `type:identifier` scheme:
+
+```
+<pageType>:<owner>/<repo>[@<sha>]
+```
+
+- The `type:` prefix is present for sub-pages (commits, tree, blob, etc.).
+- The repo root page omits the prefix (`<owner>/<repo>`).
+- Commit-anchored pages append `@<shortSha>` to identify the specific commit.
+
+| Page | Title |
+|---|---|
+| Home | `depo` |
+| Repo root | `{owner}/{repo}` |
+| Commits list | `commits:{owner}/{repo}` |
+| Commit detail | `{owner}/{repo}@{shortSha}` |
+| Tree (future) | `tree:{owner}/{repo}@{ref}` |
+| Blob (future) | `blob:{owner}/{repo}@{ref}` |
+
 ## Change Discipline
 
 Keep changes reviewable.

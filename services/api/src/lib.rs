@@ -3,6 +3,7 @@ pub mod auth;
 pub mod config;
 pub mod db;
 pub mod git_http;
+pub mod lands;
 
 #[cfg(test)]
 mod git_http_tests;
@@ -38,6 +39,10 @@ pub fn router(state: AppState) -> Router {
             post(api::handlers::create_repo).get(api::handlers::list_repos),
         )
         .route("/api/v1/repos/{owner}/{repo}", get(api::handlers::get_repo))
+        .route(
+            "/api/v1/repos/{owner}/{repo}/lands",
+            get(api::handlers::list_lands),
+        )
         .route(
             "/api/v1/repos/{owner}/{repo}/commits",
             post(api::handlers::create_commit).get(api::handlers::list_commits),

@@ -86,6 +86,12 @@ pub struct BranchHead {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RefHead {
+    pub ref_name: String,
+    pub sha: GitSha,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommitSummary {
     pub sha: GitSha,
     pub title: String,

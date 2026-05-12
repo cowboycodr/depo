@@ -79,6 +79,7 @@ mod tests {
         assert_eq!(response.status(), axum::http::StatusCode::OK);
 
         let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method(Method::GET)
@@ -107,6 +108,28 @@ mod tests {
                 .any(|node| node["path"] == "src/main.rs")
         );
         assert_eq!(json["recentCommits"][0]["title"], "Initial commit");
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v1/repos/kian/depo/lands")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        assert_eq!(
+            status,
+            axum::http::StatusCode::OK,
+            "{}",
+            String::from_utf8_lossy(&body)
+        );
+        let lands: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(lands["lands"].as_array().unwrap().len(), 0);
+        assert_eq!(lands["hasMore"], false);
     }
 
     #[tokio::test]

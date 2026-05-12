@@ -19,6 +19,8 @@ export type {
   CreateCommitInput,
   CreateRepositoryInput,
   DepoErrorBody,
+  Land,
+  LandListResponse,
   ReadParams,
   Repository,
   RepositoryListResponse,
@@ -39,6 +41,7 @@ import type {
   DepoErrorBody,
   DiffParams,
   DiffResponse,
+  LandListResponse,
   ReadParams,
   Repository,
   RepositoryListResponse,
@@ -169,6 +172,20 @@ export class RepositoriesResource {
     );
   }
 
+  async lands(
+    owner: string,
+    repo: string,
+    params: { limit?: number } = {},
+  ): Promise<LandListResponse> {
+    const query = new URLSearchParams();
+    if (params.limit !== undefined) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return this.client.request<LandListResponse>(
+      "GET",
+      `${repoPath(owner, repo)}/lands${qs.length > 0 ? `?${qs}` : ""}`,
+    );
+  }
+
   async commit(
     owner: string,
     repo: string,
@@ -231,6 +248,16 @@ export class DepoRepository {
     return this.client.request<RepositoryView>(
       "GET",
       `${repoPath(this.repo.owner, this.repo.name)}/view${readQuery(params)}`,
+    );
+  }
+
+  async lands(params: { limit?: number } = {}): Promise<LandListResponse> {
+    const query = new URLSearchParams();
+    if (params.limit !== undefined) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return this.client.request<LandListResponse>(
+      "GET",
+      `${repoPath(this.repo.owner, this.repo.name)}/lands${qs.length > 0 ? `?${qs}` : ""}`,
     );
   }
 }

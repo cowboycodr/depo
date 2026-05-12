@@ -30,7 +30,7 @@ Default layout:
 
 ## SQLite Metadata
 
-The current migration creates one table:
+The initial migration creates repository metadata:
 
 ```sql
 CREATE TABLE IF NOT EXISTS repositories (
@@ -47,7 +47,31 @@ CREATE TABLE IF NOT EXISTS repositories (
 
 The API enables SQLite WAL mode and foreign keys when connecting.
 
-`refs`, `commits`, `api_keys`, users, organizations, reviews, checks, jobs, and logs are not in the schema yet.
+The Lands migration records push intake:
+
+```sql
+CREATE TABLE IF NOT EXISTS lands (
+    id TEXT PRIMARY KEY,
+    repo_id TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    source TEXT NOT NULL,
+    ref_name TEXT NOT NULL,
+    short_ref TEXT NOT NULL,
+    old_sha TEXT NOT NULL,
+    new_sha TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'received',
+    head_title TEXT,
+    commit_count INTEGER NOT NULL DEFAULT 0,
+    additions INTEGER NOT NULL DEFAULT 0,
+    removals INTEGER NOT NULL DEFAULT 0,
+    pushed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+```
+
+`land_commits` stores the newest commit summaries associated with a land so the feed can remain a product projection over push intake instead of reparsing raw Git output in the UI.
+
+`refs`, full commit metadata, `api_keys`, users, organizations, reviews, checks, jobs, and logs are not in the schema yet.
 
 ## Bare Repository Layout
 
@@ -129,6 +153,14 @@ There are two current write paths:
 
 1. Git smart HTTP pushes through `git http-backend`.
 2. Commit builder API constructs Git objects and updates refs.
+
+Git smart HTTP push intake:
+
+- Snapshots branch refs before `git-receive-pack`.
+- Runs the standard `git http-backend` receive flow.
+- Snapshots branch refs after a successful receive response.
+- Records changed branch refs as Lands in SQLite.
+- Preserves the Git response if post-receive recording fails, because the ref update has already happened.
 
 The commit builder:
 

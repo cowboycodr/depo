@@ -11,7 +11,7 @@ use depo_core::git::{BareRepository, GitCommandRequest, RepoId, RepoName, Reposi
 use crate::{
     AppState,
     auth::{AuthError, GitAccess, authenticate_git},
-    db,
+    db, lands,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +67,7 @@ pub async fn handle(
         &target.repo_id,
         target.service.access(),
     )?;
+    let actor_subject = actor.subject;
     let record = db::get_repository(
         &state.db,
         target.repo_id.owner().as_str(),
@@ -84,7 +85,12 @@ pub async fn handle(
             "Repository storage path does not match the configured storage root.",
         ));
     }
-    BareRepository::open(target.repo_id.clone(), repo_path, state.git.clone())?;
+    let repo = BareRepository::open(target.repo_id.clone(), repo_path, state.git.clone())?;
+    let before_refs = if target.service == GitService::ReceivePack && parts.method == Method::POST {
+        Some(repo.list_ref_heads()?)
+    } else {
+        None
+    };
 
     let body_bytes = to_bytes(body, state.git_http_body_limit)
         .await
@@ -96,11 +102,34 @@ pub async fn handle(
         parts.uri.query().unwrap_or(""),
         &parts.headers,
         body_bytes,
-        actor.subject,
+        actor_subject.clone(),
     )
     .await?;
 
-    parse_cgi_response(output.stdout)
+    let response = parse_cgi_response(output.stdout)?;
+    if let Some(before_refs) = before_refs
+        && response.status().is_success()
+    {
+        let after_refs = repo.list_ref_heads()?;
+        if let Err(error) = lands::record_ref_changes(
+            &state.db,
+            &repo,
+            &record.id,
+            &actor_subject,
+            "git-http",
+            &before_refs,
+            &after_refs,
+        )
+        .await
+        {
+            eprintln!(
+                "depo-api: failed to record lands for {}: {error}",
+                record.id
+            );
+        }
+    }
+
+    Ok(response)
 }
 
 fn parse_target(

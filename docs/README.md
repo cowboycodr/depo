@@ -32,6 +32,8 @@ Implemented now:
 - Use `/api/v1/repos/{owner}/{repo}/view` for a low-latency repository browser projection.
 - Inspect commit metadata and file diffs through commit detail and diff APIs.
 - Clone, fetch, and push through authenticated Git smart HTTP at `/{owner}/{repo}.git`.
+- Record successful Git smart HTTP branch ref updates as Lands.
+- Use the Lands feed as the default repository view.
 - Browse imported repositories in the web app, expand the tree, and view actual text file content.
 - View a commits list page backed by real Git commit data.
 - Open commit detail pages and render text diffs through the existing diff viewer.

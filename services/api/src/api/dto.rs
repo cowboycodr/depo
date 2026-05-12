@@ -34,6 +34,63 @@ pub struct CommitListResponse {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct LandListQuery {
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LandListResponse {
+    pub lands: Vec<LandDto>,
+    pub next_cursor: Option<String>,
+    pub has_more: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LandDto {
+    pub id: String,
+    pub repo_id: String,
+    pub actor: String,
+    pub source: String,
+    pub ref_name: String,
+    pub short_ref: String,
+    pub old_sha: GitSha,
+    pub new_sha: GitSha,
+    pub kind: String,
+    pub status: String,
+    pub head_title: Option<String>,
+    pub commit_count: i64,
+    pub additions: i64,
+    pub removals: i64,
+    pub pushed_at: String,
+}
+
+impl TryFrom<db::LandRecord> for LandDto {
+    type Error = crate::api::ApiError;
+
+    fn try_from(record: db::LandRecord) -> Result<Self, Self::Error> {
+        Ok(Self {
+            id: record.id,
+            repo_id: record.repo_id,
+            actor: record.actor,
+            source: record.source,
+            ref_name: record.ref_name,
+            short_ref: record.short_ref,
+            old_sha: GitSha::parse(&record.old_sha)?,
+            new_sha: GitSha::parse(&record.new_sha)?,
+            kind: record.kind,
+            status: record.status,
+            head_title: record.head_title,
+            commit_count: record.commit_count,
+            additions: record.additions,
+            removals: record.removals,
+            pushed_at: record.pushed_at,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct RepoPathParams {
     pub owner: String,
     pub repo: String,

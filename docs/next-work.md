@@ -1,17 +1,25 @@
 # Next Work
 
-State captured: 2026-05-07.
+State captured: 2026-05-12.
 
-Depo can now receive real pushes, render imported repositories, list commits, and inspect changed files in pushed commits.
+Depo can now receive real pushes, record successful branch ref updates as Lands, render the Lands feed as the repository default view, browse imported repositories under `/code`, list commits, and inspect changed files in pushed commits.
 
 ## Completed Slice
 
 ```text
-/goal make pushed commits inspectable in Depo: commit detail API, file diffs, and a web commit page using the existing diff viewer
+/goal implement Lands on a new branch, then push it with a pr explaining it, make sure it works, and there are no regressions
 ```
 
 Implemented:
 
+- `lands` and `land_commits` SQLite tables.
+- Git branch ref snapshots before and after successful smart HTTP receive-pack pushes.
+- Lands recording for branch-created and branch-updated pushes.
+- `GET /api/v1/repos/{owner}/{repo}/lands`.
+- Typed API client support for Lands.
+- Repository root page as the Lands feed.
+- Existing source browser moved to `/{owner}/{repo}/code`.
+- Nav between Lands, Code, and Commits.
 - `BareRepository::commit_detail`.
 - `BareRepository::diff_between`.
 - Root commit diffs.
@@ -29,6 +37,7 @@ Implemented:
 The product can answer:
 
 - What repositories exist?
+- What branch pushes landed in a repository?
 - What files are in a repository?
 - What is inside a selected text file?
 - What recent commits exist?
@@ -37,7 +46,7 @@ The product can answer:
 
 ## Recommended Next Goal
 
-After commit inspection, the next infrastructure hardening should be REST API auth:
+After Lands, the next infrastructure hardening should still be REST API auth:
 
 ```text
 /goal add REST API authentication to Depo with local mode kept explicit and JWT repo scopes shared with Git smart HTTP

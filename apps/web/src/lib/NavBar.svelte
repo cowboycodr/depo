@@ -8,19 +8,20 @@
     repo,
     refName = 'main',
     commitSha,
-    page = 'code',
+    page = 'lands',
     commitCount: _commitCount
   }: {
     owner: string;
     repo: string;
     refName?: string;
     commitSha?: string | null;
-    page?: 'code' | 'commits';
+    page?: 'lands' | 'code' | 'commits';
     commitCount?: number;
   } = $props();
 
   const tabs = $derived([
-    { label: 'Code', page: 'code', href: `/${owner}/${repo}` },
+    { label: 'Lands', page: 'lands', href: `/${owner}/${repo}` },
+    { label: 'Code', page: 'code', href: `/${owner}/${repo}/code` },
     { label: 'Commits', page: 'commits', href: `/${owner}/${repo}/commits` },
     { label: 'Pull Requests', page: 'prs', disabled: true },
     { label: 'Issues', page: 'issues', disabled: true }

@@ -45,6 +45,13 @@ export const actions = {
           error: error.message
         });
       }
+      const apiError = extractApiError(error);
+      if (apiError) {
+        return fail(502, {
+          values: { owner, name },
+          error: apiError.message
+        });
+      }
       throw error;
     }
 

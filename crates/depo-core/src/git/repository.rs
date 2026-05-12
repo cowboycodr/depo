@@ -12,7 +12,7 @@ use super::{
     types::{
         BlobContent, BlobKind, BranchHead, CommitAuthor, CommitChange, CommitDetail, CommitDiff,
         CommitMetadata, CommitRefUpdate, CommitRequest, CommitResult, CommitSummary,
-        DiffContentKind, DiffFile, DiffFileContent, DiffStats, TreeEntry, TreeEntryKind,
+        DiffContentKind, DiffFile, DiffFileContent, DiffStats, RefHead, TreeEntry, TreeEntryKind,
     },
 };
 
@@ -337,6 +337,35 @@ impl BareRepository {
         Ok(branches)
     }
 
+    pub fn list_ref_heads(&self) -> Result<Vec<RefHead>, RepositoryError> {
+        let output = self.git_run([
+            "for-each-ref",
+            "--format=%(refname)%09%(objectname)",
+            "refs/heads",
+        ])?;
+
+        let mut refs = Vec::new();
+        let stdout = String::from_utf8(output.stdout).map_err(RepositoryError::GitUtf8)?;
+        for record in stdout.lines() {
+            if record.is_empty() {
+                continue;
+            }
+            let (ref_name, sha) = record.split_once('\t').ok_or_else(|| {
+                RepositoryError::InvalidGitOutput("invalid ref listing".to_owned())
+            })?;
+            if ref_name.is_empty() || sha.is_empty() {
+                return Err(RepositoryError::InvalidGitOutput(
+                    "invalid ref listing".to_owned(),
+                ));
+            }
+            refs.push(RefHead {
+                ref_name: ref_name.to_owned(),
+                sha: GitSha::parse(sha)?,
+            });
+        }
+        Ok(refs)
+    }
+
     pub fn recent_commits(
         &self,
         reference: &ValidatedRef,
@@ -373,6 +402,59 @@ impl BareRepository {
         }
 
         Ok(commits)
+    }
+
+    pub fn landed_commits(
+        &self,
+        old_sha: &GitSha,
+        new_sha: &GitSha,
+        previous_heads: &[GitSha],
+        limit: usize,
+    ) -> Result<Vec<CommitSummary>, RepositoryError> {
+        if new_sha.as_str() == ZERO_SHA {
+            return Ok(Vec::new());
+        }
+
+        let mut args = vec![
+            "log".to_owned(),
+            "-n".to_owned(),
+            limit.clamp(1, 100).to_string(),
+            "--format=%x00%H%x09%P%x09%an%x09%ae%x09%cI%x09%s".to_owned(),
+            "--shortstat".to_owned(),
+        ];
+        args.extend(landed_revision_args(old_sha, new_sha, previous_heads));
+
+        let output = self.git_run_owned_with_env(args, std::iter::empty::<(&str, &str)>())?;
+        let stdout = String::from_utf8(output.stdout).map_err(RepositoryError::GitUtf8)?;
+        let mut commits = Vec::new();
+        for record in stdout.split('\x00') {
+            let record = record.trim();
+            if record.is_empty() {
+                continue;
+            }
+            commits.push(commit::parse_commit_with_stats(record)?);
+        }
+        Ok(commits)
+    }
+
+    pub fn landed_commit_count(
+        &self,
+        old_sha: &GitSha,
+        new_sha: &GitSha,
+        previous_heads: &[GitSha],
+    ) -> Result<usize, RepositoryError> {
+        if new_sha.as_str() == ZERO_SHA {
+            return Ok(0);
+        }
+
+        let mut args = vec!["rev-list".to_owned(), "--count".to_owned()];
+        args.extend(landed_revision_args(old_sha, new_sha, previous_heads));
+        let output = self.git_run_owned_with_env(args, std::iter::empty::<(&str, &str)>())?;
+        output
+            .stdout_string()?
+            .trim()
+            .parse::<usize>()
+            .map_err(|_| RepositoryError::InvalidGitOutput("invalid commit count".to_owned()))
     }
 
     fn commits_in_range(
@@ -807,6 +889,23 @@ impl BareRepository {
             "--git-dir".to_owned(),
             commit::path_to_arg(&self.path)?,
         ])
+    }
+}
+
+fn landed_revision_args(
+    old_sha: &GitSha,
+    new_sha: &GitSha,
+    previous_heads: &[GitSha],
+) -> Vec<String> {
+    if old_sha.as_str() == ZERO_SHA {
+        let mut args = vec![new_sha.as_str().to_owned()];
+        if !previous_heads.is_empty() {
+            args.push("--not".to_owned());
+            args.extend(previous_heads.iter().map(|sha| sha.as_str().to_owned()));
+        }
+        args
+    } else {
+        vec![format!("{}..{}", old_sha.as_str(), new_sha.as_str())]
     }
 }
 

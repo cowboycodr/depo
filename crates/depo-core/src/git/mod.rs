@@ -19,5 +19,5 @@ pub use storage::{StorageRoot, StorageRootError};
 pub use types::{
     BlobContent, BlobKind, BranchHead, CommitAuthor, CommitChange, CommitDetail, CommitDiff,
     CommitRefUpdate, CommitRequest, CommitResult, CommitSummary, DiffContentKind, DiffFile,
-    DiffFileContent, DiffFileStatus, DiffStats, TreeEntry, TreeEntryKind,
+    DiffFileContent, DiffFileStatus, DiffStats, RefHead, TreeEntry, TreeEntryKind,
 };

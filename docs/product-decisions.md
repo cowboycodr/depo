@@ -11,6 +11,7 @@ Depo is personal self-hosting infrastructure for code. It should be small enough
 The product should grow into:
 
 - Git repository hosting.
+- Push intake through a Lands feed.
 - Repository browsing.
 - Commit and diff inspection.
 - Review surfaces.
@@ -32,6 +33,7 @@ workspace scaffold
   -> tree/blob/commit read APIs
   -> web app wired to real repository data
   -> authenticated Git smart HTTP clone/fetch/push
+  -> Lands feed recorded from pushed ref updates
 ```
 
 The project should continue with cohesive vertical slices that prove real behavior end to end.
@@ -63,6 +65,20 @@ That means Depo needs both primitive resources and fast projections. Primitive e
 The web app should show the actual source code of a selected file. The current implementation does this for text blobs smaller than `DEPO_INLINE_BLOB_LIMIT`. Binary files and files above the inline limit return metadata without inline content.
 
 This is an important product boundary: the UI is reading Git objects, not displaying copied fixture text.
+
+## Lands As The Default Repo View
+
+The repository root page is now the Lands feed, not the code browser.
+
+This is a product decision: Depo is where agents and tools push code onto owned infrastructure. The default repo question is therefore "what landed here, and is it healthy?" rather than "what files are in the root tree?"
+
+Implementation boundary:
+
+- Lands are recorded from successful Git smart HTTP branch ref updates.
+- A land records actor, source, ref, old SHA, new SHA, branch update kind, received status, pushed time, head title, commit count, and displayed line stats.
+- Lands are not agent-review records and do not require Depo to run agents.
+- Checks can attach to Lands later when runner work exists.
+- The source browser remains available at `/{owner}/{repo}/code`.
 
 ## Git Remote Identity
 

@@ -33,10 +33,10 @@ Git Core
   repositories, refs, commits, trees, blobs, diffs
 
 Product API
-  repositories, commits, projections, auth, future reviews/checks/jobs
+  repositories, lands, commits, projections, auth, future reviews/checks/jobs
 
 Interface
-  repository browser, file viewer, commit list, commit diff surface, future review/log surfaces
+  lands feed, repository browser, file viewer, commit list, commit diff surface, future review/log surfaces
 
 Runner
   future job claiming, checkout, execution, streaming, cancellation
@@ -48,16 +48,28 @@ Deployment
 Current implementation ownership:
 
 - `crates/depo-core` owns Git identity validation, repo path validation, branch/ref/SHA validation, bare repo lifecycle, Git command execution, commit construction, tree reads, blob reads, branch listing, and commit summaries.
-- `services/api` owns HTTP routing, SQLite migrations, repository metadata persistence, REST DTOs, auth verification for Git smart HTTP, and the `git http-backend` adapter.
+- `services/api` owns HTTP routing, SQLite migrations, repository metadata and Lands persistence, REST DTOs, auth verification for Git smart HTTP, and the `git http-backend` adapter.
 - `packages/api-client` wraps the implemented API surface for TypeScript consumers.
 - `apps/web` owns UI rendering and server-side data loading through the API client.
 
 ## Current Request Flow
 
-Repository browser first paint:
+Repository root first paint:
 
 ```text
 browser route /{owner}/{repo}
+  -> SvelteKit server load
+  -> DepoClient.repos.get(owner, repo)
+  -> DepoClient.repos.lands(owner, repo)
+  -> API resolves repository metadata from SQLite
+  -> API reads Lands recorded from pushed ref updates
+  -> web app renders push intake and status feed
+```
+
+Repository code first paint:
+
+```text
+browser route /{owner}/{repo}/code
   -> SvelteKit server load
   -> DepoClient.repos.view(owner, repo, { ref, path })
   -> GET /api/v1/repos/{owner}/{repo}/view
@@ -74,8 +86,11 @@ git push http://git:token@host/{owner}/{repo}.git main
   -> parse {owner}/{repo}.git smart HTTP target
   -> authenticate before repository lookup
   -> verify SQLite storage_path matches configured storage root
+  -> snapshot branch refs before receive-pack
   -> run git http-backend with explicit CGI environment
   -> Git updates the same bare repo that the web API reads
+  -> snapshot branch refs after receive-pack
+  -> record changed refs as Lands
 ```
 
 ## Implemented Git Core
@@ -92,7 +107,9 @@ Implemented:
 - Tree listing through `ls-tree`.
 - Blob reading through `cat-file`.
 - Branch listing through `for-each-ref`.
+- Branch ref snapshots for Lands recording.
 - Recent commit summaries through `git log`.
+- Landed commit summaries and counts for pushed ref updates.
 - Commit detail loading through `git show`.
 - Structured first-parent and root diff generation through `git diff-tree`.
 
@@ -110,6 +127,7 @@ Implemented REST endpoints:
 - `POST /api/v1/repos`
 - `GET /api/v1/repos`
 - `GET /api/v1/repos/{owner}/{repo}`
+- `GET /api/v1/repos/{owner}/{repo}/lands`
 - `POST /api/v1/repos/{owner}/{repo}/commits`
 - `GET /api/v1/repos/{owner}/{repo}/tree`
 - `GET /api/v1/repos/{owner}/{repo}/blob`
@@ -132,6 +150,7 @@ Implemented:
 - Root repository list.
 - Root repository creation form.
 - Repository code route.
+- Repository Lands route as the default repo view.
 - Recursive repository tree.
 - File links with `path` query parameters.
 - Auto-open README when available.

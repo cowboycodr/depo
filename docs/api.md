@@ -260,6 +260,48 @@ Response:
 }
 ```
 
+### List Lands
+
+```http
+GET /api/v1/repos/{owner}/{repo}/lands?limit=50
+```
+
+Lands are push-intake events recorded from successful Git smart HTTP ref updates. They answer what arrived in Depo, which is distinct from commit history. A branch push that updates one ref produces one land.
+
+Query parameters:
+
+- `limit`: optional integer. The API clamps this to `1..100`.
+
+Response:
+
+```json
+{
+  "lands": [
+    {
+      "id": "land_9f1d67b9c31c02b8a44a22ef",
+      "repoId": "kian/depo",
+      "actor": "local",
+      "source": "git-http",
+      "refName": "refs/heads/main",
+      "shortRef": "main",
+      "oldSha": "2222222222222222222222222222222222222222",
+      "newSha": "8f12c3bd0f4ff7bfb7267e7a61b3c4a8712a10b2",
+      "kind": "branch_updated",
+      "status": "received",
+      "headTitle": "Expand README",
+      "commitCount": 1,
+      "additions": 2,
+      "removals": 0,
+      "pushedAt": "2026-05-12T12:00:00.000Z"
+    }
+  ],
+  "nextCursor": null,
+  "hasMore": false
+}
+```
+
+Implemented `kind` values are `branch_created`, `branch_updated`, and `branch_deleted`. `status` is currently `received`; future runner work can advance a land to `checking`, `passed`, or `failed`.
+
 ### Get Commit Detail
 
 ```http
@@ -419,6 +461,7 @@ Response shape:
 
 Current behavior:
 
+- Repository lands page uses `GET /repos/{owner}/{repo}` and `GET /lands` in parallel.
 - Repository code page uses one `/view` request for the primary browser state.
 - If the route has no selected file, the web load checks for a README in the returned tree and may make a second `/view` request with the README path.
 - Commits page loads `/view` and `/commits` in parallel.

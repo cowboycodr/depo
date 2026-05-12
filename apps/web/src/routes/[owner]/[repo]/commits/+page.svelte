@@ -16,6 +16,12 @@
     return `/${data.owner}/${data.repo}/commits/${sha}${qs.length > 0 ? `?${qs}` : ''}`;
   }
 
+  function parseMergeTitle(title: string): { number: string; branch: string } | null {
+    const match = title.match(/^Merge pull request #(\d+) from (.+)$/);
+    if (!match || !match[1] || !match[2]) return null;
+    return { number: match[1], branch: match[2] };
+  }
+
   const groups = $derived(groupByDate(data.commits));
 </script>
 
@@ -73,44 +79,59 @@
                   <!-- Commits in group -->
                   {#each group.commits as commit (commit.sha)}
                     {@const isMerge = commit.parents.length >= 2}
-                    {@const palette = avatarPalette(commit.author.name)}
-                    <a
-                      href={hrefForCommit(commit.sha)}
-                      class="group flex h-8 items-center gap-3 px-4 outline-none hover:bg-overlay-hover focus-visible:shadow-ring"
-                      class:bg-overlay-hover={isMerge}
-                    >
-                      <!-- Author avatar or merge icon -->
-                      {#if isMerge}
-                        <div
-                          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar bg-surface-accent"
-                        >
-                          <GitMerge
-                            class="text-accent-info"
-                            width={12}
-                            height={12}
-                            stroke-width={2}
-                          />
+
+                    {#if isMerge}
+                      {@const pr = parseMergeTitle(commit.title)}
+                      <!-- Merge card -->
+                      <a
+                        href={hrefForCommit(commit.sha)}
+                        class="mx-2 my-0.5 block rounded-md border-l-2 border-accent bg-surface-accent px-3 py-2 outline-none transition-colors hover:bg-surface-accent/70 focus-visible:shadow-ring"
+                      >
+                        <div class="flex items-start gap-2">
+                          <div
+                            class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar bg-accent"
+                          >
+                            <GitMerge class="text-bg" width={12} height={12} stroke-width={2.5} />
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-baseline gap-1.5 text-ui-md">
+                              {#if pr}
+                                <span class="font-medium text-fg">Pull request #{pr.number}</span>
+                                <span class="truncate text-fg-secondary">{pr.branch}</span>
+                              {:else}
+                                <span class="font-medium text-fg">{commit.title}</span>
+                              {/if}
+                            </div>
+                            <div class="mt-0.5 flex items-center gap-2 text-ui text-fg-muted">
+                              <span>{commit.author.name}</span>
+                              <span class="text-fg-slash">·</span>
+                              <span title={formatFullDate(commit.committedAt)}
+                                >{timeAgo(commit.committedAt)}</span
+                              >
+                              <span class="text-fg-slash">·</span>
+                              <span class="font-mono text-fg-ref">{commit.sha.slice(0, 7)}</span>
+                            </div>
+                          </div>
                         </div>
-                      {:else}
+                      </a>
+                    {:else}
+                      {@const palette = avatarPalette(commit.author.name)}
+                      <!-- Regular commit row -->
+                      <a
+                        href={hrefForCommit(commit.sha)}
+                        class="group flex h-8 items-center gap-3 px-4 outline-none hover:bg-overlay-hover focus-visible:shadow-ring"
+                      >
                         <div
                           class="flex h-5 w-5 shrink-0 items-center justify-center rounded-avatar text-2xs font-semibold"
                           style="background-color: {palette.bg}; color: {palette.text};"
                         >
                           {initials(commit.author.name)}
                         </div>
-                      {/if}
 
-                      <!-- Commit title -->
-                      <span
-                        class="min-w-0 flex-1 truncate text-ui-md"
-                        class:text-fg={!isMerge}
-                        class:text-fg-secondary={isMerge}
-                      >
-                        {commit.title}
-                      </span>
+                        <span class="min-w-0 flex-1 truncate text-ui-md text-fg">
+                          {commit.title}
+                        </span>
 
-                      <!-- Changes -->
-                      {#if !isMerge}
                         <span
                           class="flex w-20 shrink-0 items-center justify-end gap-1 font-mono text-ui opacity-0 transition-opacity duration-150 group-hover:opacity-100"
                         >
@@ -121,30 +142,22 @@
                             <span class="text-danger">-{commit.removals}</span>
                           {/if}
                         </span>
-                      {:else}
-                        <span
-                          class="flex w-20 shrink-0 items-center justify-end font-mono text-ui text-fg-muted"
-                        >
-                          merged
+
+                        <span class="shrink-0 text-ui text-fg-muted">
+                          {commit.author.name}
                         </span>
-                      {/if}
+                        <span
+                          class="w-16 shrink-0 text-right text-ui text-fg-subtle"
+                          title={formatFullDate(commit.committedAt)}
+                        >
+                          {timeAgo(commit.committedAt)}
+                        </span>
 
-                      <!-- Author + time -->
-                      <span class="shrink-0 text-ui text-fg-muted">
-                        {commit.author.name}
-                      </span>
-                      <span
-                        class="w-16 shrink-0 text-right text-ui text-fg-subtle"
-                        title={formatFullDate(commit.committedAt)}
-                      >
-                        {timeAgo(commit.committedAt)}
-                      </span>
-
-                      <!-- SHA -->
-                      <span class="w-20 shrink-0 text-right font-mono text-ui text-fg-ref">
-                        {commit.sha.slice(0, 7)}
-                      </span>
-                    </a>
+                        <span class="w-20 shrink-0 text-right font-mono text-ui text-fg-ref">
+                          {commit.sha.slice(0, 7)}
+                        </span>
+                      </a>
+                    {/if}
                   {/each}
                 {/each}
               </div>

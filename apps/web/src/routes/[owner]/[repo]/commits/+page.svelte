@@ -138,9 +138,10 @@
                     {#if isMerge}
                       {@const containedCount = commit.containedCommits?.length ?? 0}
                       {@const stats = mergeStats(commit.containedCommits ?? [])}
+                      {@const expanded = expandedMerges[commit.sha] ?? false}
                       <div class="bg-overlay-hover">
                         <div
-                          class="flex h-8 items-center gap-3 px-4"
+                          class="group flex h-8 items-center gap-3 px-4"
                           role="button"
                           tabindex="0"
                           onclick={() => toggleMerge(commit.sha)}
@@ -163,18 +164,22 @@
                             {commit.title}
                           </span>
 
-                          {#if containedCount > 0}
-                            <span class="shrink-0 text-ui text-fg-muted">
-                              {containedCount} commit{containedCount !== 1 ? 's' : ''}
-                            </span>
-                          {/if}
-                          {#if stats.additions > 0 || stats.removals > 0}
-                            <span class="shrink-0 text-ui text-fg-muted">
-                              {#if stats.additions > 0}
-                                <span class="text-diff-add-strong">+{stats.additions}</span>
+                          {#if !expanded}
+                            <span
+                              class="flex shrink-0 items-center gap-1.5 text-ui opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                            >
+                              {#if containedCount > 0}
+                                <span class="text-fg-muted">{containedCount} commits</span>
                               {/if}
-                              {#if stats.removals > 0}
-                                <span class="text-danger">-{stats.removals}</span>
+                              {#if stats.additions > 0 || stats.removals > 0}
+                                <span class="flex gap-1 font-mono">
+                                  {#if stats.additions > 0}
+                                    <span class="text-diff-add-strong">+{stats.additions}</span>
+                                  {/if}
+                                  {#if stats.removals > 0}
+                                    <span class="text-danger">-{stats.removals}</span>
+                                  {/if}
+                                </span>
                               {/if}
                             </span>
                           {/if}
@@ -198,10 +203,24 @@
                           </a>
                         </div>
 
-                        {#if expandedMerges[commit.sha]}
+                        {#if expanded}
                           {#each commit.containedCommits ?? [] as contained (contained.sha)}
                             {@render commitRow(contained)}
                           {/each}
+                          <div class="flex h-8 items-center gap-2 px-4 text-ui text-fg-muted">
+                            <span>{containedCount} commit{containedCount !== 1 ? 's' : ''}</span>
+                            {#if stats.additions > 0 || stats.removals > 0}
+                              <span class="text-fg-slash">·</span>
+                              <span class="flex gap-1 font-mono">
+                                {#if stats.additions > 0}
+                                  <span class="text-diff-add-strong">+{stats.additions}</span>
+                                {/if}
+                                {#if stats.removals > 0}
+                                  <span class="text-danger">-{stats.removals}</span>
+                                {/if}
+                              </span>
+                            {/if}
+                          </div>
                         {/if}
                       </div>
                     {:else}

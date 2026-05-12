@@ -363,6 +363,40 @@ impl BareRepository {
             if record.is_empty() {
                 continue;
             }
+            let mut commit = commit::parse_commit_with_stats(record)?;
+            if commit.parents.len() >= 2
+                && let (Some(p1), Some(p2)) = (commit.parents.first(), commit.parents.get(1))
+            {
+                commit.contained_commits = self.commits_in_range(p1, p2)?;
+            }
+            commits.push(commit);
+        }
+
+        Ok(commits)
+    }
+
+    fn commits_in_range(
+        &self,
+        since: &GitSha,
+        until: &GitSha,
+    ) -> Result<Vec<CommitSummary>, RepositoryError> {
+        let output = self.git_run_owned_with_env(
+            vec![
+                "log".to_owned(),
+                "--format=%x00%H%x09%P%x09%an%x09%ae%x09%cI%x09%s".to_owned(),
+                "--shortstat".to_owned(),
+                format!("{}..{}", since.as_str(), until.as_str()),
+            ],
+            std::iter::empty::<(&str, &str)>(),
+        )?;
+
+        let stdout = String::from_utf8(output.stdout).map_err(RepositoryError::GitUtf8)?;
+        let mut commits = Vec::new();
+        for record in stdout.split('\x00') {
+            let record = record.trim();
+            if record.is_empty() {
+                continue;
+            }
             commits.push(commit::parse_commit_with_stats(record)?);
         }
 
@@ -424,6 +458,7 @@ impl BareRepository {
             additions: 0,
             removals: 0,
             parents,
+            contained_commits: Vec::new(),
             description,
         })
     }

@@ -65,6 +65,7 @@ pub(crate) fn parse_commit_with_stats(record: &str) -> Result<CommitSummary, Rep
         additions,
         removals,
         parents,
+        contained_commits: Vec::new(),
         description: None,
     })
 }

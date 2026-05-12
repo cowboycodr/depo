@@ -126,6 +126,7 @@ export type CommitSummary = {
   additions: number;
   removals: number;
   parents: string[];
+  containedCommits?: CommitSummary[];
   description?: string | null;
 };
 

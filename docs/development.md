@@ -41,6 +41,25 @@ Start both:
 pnpm dev
 ```
 
+## Migration State While Switching Branches
+
+Local development uses `~/.depo/depo.db` by default. SQLite migrations are forward-only for the active checkout. If a feature branch applies a new migration and you then switch back to `main` before that migration exists there, `pnpm dev:api` can fail with:
+
+```text
+migration N was previously applied but is missing in the resolved migrations
+```
+
+Use one of these options:
+
+- Switch back to the feature branch that owns the migration.
+- Run with a separate data directory for throwaway branch testing:
+
+```bash
+DEPO_DATA_DIR=/tmp/depo-dev pnpm dev:api
+```
+
+- If the default local data can be discarded, remove `~/.depo/depo.db*` and restart the API.
+
 ## Environment Variables
 
 API:

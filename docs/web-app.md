@@ -44,6 +44,17 @@ The create form currently creates repository metadata and a bare repository. It 
 
 Current behavior:
 
+- Loads repository metadata and the latest Lands in parallel.
+- Renders the Lands feed as the repository default view.
+- Shows what arrived through Git smart HTTP pushes: actor, branch, land kind, received status, head title, commit count, aggregate displayed stats, and push time.
+- Links each non-deleted land to the commit detail page for the landed head SHA.
+
+This route is the main proof that Depo is a push intake surface, not only a source browser.
+
+### `/{owner}/{repo}/code`
+
+Current behavior:
+
 - Reads `ref` and `path` query parameters.
 - Calls `client.repos.view(owner, repo, { ref, path })`.
 - If no path is selected and a README exists in the returned tree, calls `/view` again with that README path.
@@ -84,7 +95,7 @@ Important product surfaces:
 - `FileViewer.svelte`: renders actual text content with line numbers.
 - `FileHeader.svelte`: owns tabs, file metadata, and diff-mode controls.
 - `DiffViewer.svelte`: diff renderer wrapper for old/new file contents.
-- `NavBar.svelte`: repository navigation between code and commits.
+- `NavBar.svelte`: repository navigation between lands, code, and commits.
 
 ## UI Boundary
 

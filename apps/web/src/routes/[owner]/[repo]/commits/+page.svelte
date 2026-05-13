@@ -53,20 +53,9 @@
   <div class="overflow-hidden bg-canvas">
     <div class="flex h-full flex-col overflow-hidden">
       <main class="relative min-w-0 flex-1 overflow-hidden">
-        <div
-          class="relative grid h-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-tl-ui rounded-tr-ui bg-surface-muted"
-        >
-          <!-- Header bar -->
-          <div class="flex h-9.5 shrink-0 items-center justify-end bg-surface-muted px-4">
-            {#if data.commits.length > 0}
-              <span class="font-mono text-ui text-fg-muted">
-                {data.commits.length} commit{data.commits.length !== 1 ? 's' : ''}
-              </span>
-            {/if}
-          </div>
-
+        <div class="relative h-full overflow-hidden rounded-tl-ui rounded-tr-ui bg-surface-muted">
           <!-- Commits list -->
-          <div class="overflow-y-auto">
+          <div class="h-full overflow-y-auto">
             {#if data.error}
               <div class="flex h-full items-center justify-center p-8 text-ui text-fg-secondary">
                 {data.error.message}

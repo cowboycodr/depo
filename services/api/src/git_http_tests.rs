@@ -127,6 +127,18 @@ async fn clone_fetch_and_push_work_over_authenticated_smart_http() {
         .recent_commits(&ValidatedRef::Branch(BranchName::parse("main").unwrap()), 1)
         .unwrap();
     assert_eq!(commits[0].title, "Client update");
+
+    let lands = db::list_lands(&server.state.db, "kian/depo", 10)
+        .await
+        .unwrap();
+    assert_eq!(lands.len(), 1);
+    assert_eq!(lands[0].actor, "local");
+    assert_eq!(lands[0].source, "git-http");
+    assert_eq!(lands[0].short_ref, "main");
+    assert_eq!(lands[0].kind, "branch_updated");
+    assert_eq!(lands[0].head_title.as_deref(), Some("Client update"));
+    assert_eq!(lands[0].commit_count, 1);
+    assert_eq!(lands[0].new_sha, commits[0].sha.as_str());
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -195,6 +207,15 @@ async fn push_to_empty_repository_creates_default_branch() {
         )
         .unwrap();
     assert_eq!(blob.content.as_deref(), Some("# Empty no more\n"));
+
+    let lands = db::list_lands(&server.state.db, "kian/depo", 10)
+        .await
+        .unwrap();
+    assert_eq!(lands.len(), 1);
+    assert_eq!(lands[0].short_ref, "main");
+    assert_eq!(lands[0].kind, "branch_created");
+    assert_eq!(lands[0].head_title.as_deref(), Some("Initial push"));
+    assert_eq!(lands[0].commit_count, 1);
 }
 
 #[tokio::test]

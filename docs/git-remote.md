@@ -66,7 +66,7 @@ git remote add depo http://git:local@127.0.0.1:3847/kian/demo.git
 git push -u depo main
 ```
 
-After a push, the web app reads the pushed objects from the same bare repository.
+After a push, the web app reads the pushed objects from the same bare repository and the API records changed branch refs as Lands.
 
 ## Authentication
 
@@ -113,6 +113,7 @@ The Git smart HTTP adapter:
 - Authenticates before repository lookup.
 - Confirms the SQLite `storage_path` matches the configured storage root.
 - Opens the bare repository before invoking `git http-backend`.
+- Snapshots branch refs before and after `git-receive-pack` to record successful pushes as Lands.
 - Uses argument arrays, not shell interpolation.
 - Sets explicit CGI environment variables.
 - Sets `GIT_CONFIG_NOSYSTEM=1`.

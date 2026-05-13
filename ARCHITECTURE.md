@@ -28,9 +28,10 @@ scaffold workspace
   -> commit builder API
   -> tree/blob/read projections for the frontend
   -> authenticated Git smart-HTTP clone/fetch/push
+  -> Lands feed recorded from pushed branch ref updates
 ```
 
-The commit builder and read APIs proved the storage model, repository lifecycle, refs, commits, trees, and file rendering before the Git protocol surface was added. Git smart-HTTP now uses the same bare repository storage, so `git clone`, `git fetch`, and `git push` update the data the web app reads.
+The commit builder and read APIs proved the storage model, repository lifecycle, refs, commits, trees, and file rendering before the Git protocol surface was added. Git smart-HTTP now uses the same bare repository storage, so `git clone`, `git fetch`, and `git push` update the data the web app reads. Successful branch ref updates are recorded as Lands so the default repo view answers what arrived in Depo.
 
 ---
 
@@ -147,12 +148,14 @@ Git Core (crates/depo-core)
 
 Product API (services/api)
   ├── Repo CRUD endpoints
+  ├── Lands API
   ├── Commit builder API
   ├── Branch/merge operations
   ├── Permission enforcement
   └── Pagination, caching, errors
 
 Interface (apps/web)
+  ├── Lands feed
   ├── Repository browser
   ├── Diff viewer (uses @pierre/diffs)
   ├── File tree, nav, settings
@@ -686,13 +689,13 @@ The core spine, first web-usable repository flow, and authenticated Git remote f
 
 - Workspace layout exists: root `Cargo.toml`, root `package.json`, `pnpm-workspace.yaml`, `crates/depo-core`, `services/api`, and `packages/api-client`.
 - `depo-core` owns repository ID validation, repo file path validation, branch/ref/SHA validation, path-safe bare repo layout, Git command execution with argument arrays, stdin support, and timeouts, bare repo creation, commit construction, direct and recursive tree listing, blob reading, branch listing, and recent commit summaries.
-- `services/api` owns SQLite migrations, metadata access for `repositories`, Git smart-HTTP routing, and Git credential verification.
-- The API implements `POST /api/v1/repos`, `GET /api/v1/repos`, `GET /api/v1/repos/{owner}/{repo}`, `POST /api/v1/repos/{owner}/{repo}/commits`, `GET /api/v1/repos/{owner}/{repo}/tree`, `GET /api/v1/repos/{owner}/{repo}/blob`, and `GET /api/v1/repos/{owner}/{repo}/view`.
+- `services/api` owns SQLite migrations, metadata access for `repositories` and Lands, Git smart-HTTP routing, and Git credential verification.
+- The API implements `POST /api/v1/repos`, `GET /api/v1/repos`, `GET /api/v1/repos/{owner}/{repo}`, `GET /api/v1/repos/{owner}/{repo}/lands`, `POST /api/v1/repos/{owner}/{repo}/commits`, `GET /api/v1/repos/{owner}/{repo}/tree`, `GET /api/v1/repos/{owner}/{repo}/blob`, and `GET /api/v1/repos/{owner}/{repo}/view`.
 - The Git remote surface implements authenticated smart-HTTP clone/fetch/push at `/{owner}/{repo}.git`.
 - `DEPO_AUTH_MODE=jwt` verifies ES256 JWTs for Git smart-HTTP using `DEPO_AUTH_PUBLIC_KEY_PEM` or `DEPO_AUTH_PUBLIC_KEY_PATH`. `DEPO_AUTH_MODE=local` remains an explicit local development mode.
 - `/view` proves the frontend read path by returning repository metadata, resolved ref data, branches, recursive tree nodes, actual active file text, and recent commits in one response.
 - `packages/api-client` wraps only the working API behavior.
-- `apps/web` is copied from the existing standalone SvelteKit UI and wired to real API data with minimal visual changes. The root page lists repositories and creates a repository plus its first `README.md` commit through the API client. Repository pages load `/view`, browse the returned tree with file links, and render actual text blobs in a normal source viewer.
+- `apps/web` is copied from the existing standalone SvelteKit UI and wired to real API data with minimal visual changes. The root page lists repositories and creates repository metadata through the API client. Repository root pages render Lands, while `/code` loads `/view`, browses the returned tree with file links, and renders actual text blobs in a normal source viewer.
 
 Verification:
 

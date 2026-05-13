@@ -18,9 +18,9 @@ use crate::{
         BlobResponse, BranchDto, BranchesDto, CommitBuilderRequest, CommitBuilderResponse,
         CommitDetailQuery, CommitDetailResponse, CommitDto, CommitListResponse, CommitPathParams,
         CommitSummaryDto, CommitsListQuery, CreateRepoRequest, DiffDto, DiffQuery, DiffResponse,
-        HealthResponse, ReadQuery, RefDto, RefUpdateDto, RepoPathParams, RepoViewResponse,
-        RepositoryDto, RepositoryListResponse, RepositoryResponse, TreeEntryDto, TreeNodesDto,
-        TreeResponse,
+        HealthResponse, LandDto, LandListQuery, LandListResponse, ReadQuery, RefDto, RefUpdateDto,
+        RepoPathParams, RepoViewResponse, RepositoryDto, RepositoryListResponse,
+        RepositoryResponse, TreeEntryDto, TreeNodesDto, TreeResponse,
     },
     db,
 };
@@ -119,6 +119,26 @@ pub async fn get_repo(
     let record = load_repo_record(&state, &params.owner, &params.repo).await?;
     Ok(Json(RepositoryResponse {
         repo: RepositoryDto::from(record),
+    }))
+}
+
+pub async fn list_lands(
+    State(state): State<AppState>,
+    Path(params): Path<RepoPathParams>,
+    Query(query): Query<LandListQuery>,
+) -> Result<Json<LandListResponse>, ApiError> {
+    let record = load_repo_record(&state, &params.owner, &params.repo).await?;
+    let limit = i64::from(query.limit.unwrap_or(50).clamp(1, 100));
+    let lands = db::list_lands(&state.db, &record.id, limit)
+        .await?
+        .into_iter()
+        .map(LandDto::try_from)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(Json(LandListResponse {
+        lands,
+        next_cursor: None,
+        has_more: false,
     }))
 }
 

@@ -134,6 +134,30 @@ export type CommitListResponse = {
   commits: CommitSummary[];
 };
 
+export type Land = {
+  id: string;
+  repoId: string;
+  actor: string;
+  source: string;
+  refName: string;
+  shortRef: string;
+  oldSha: string;
+  newSha: string;
+  kind: "branch_created" | "branch_updated" | "branch_deleted";
+  status: "received" | "checking" | "passed" | "failed";
+  headTitle: string | null;
+  commitCount: number;
+  additions: number;
+  removals: number;
+  pushedAt: string;
+};
+
+export type LandListResponse = {
+  lands: Land[];
+  nextCursor: string | null;
+  hasMore: boolean;
+};
+
 export type DiffStats = {
   filesChanged: number;
   additions: number;
